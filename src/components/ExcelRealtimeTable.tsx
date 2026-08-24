@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Download, Search, Image as ImageIcon, CheckCircle, AlertCircle, Eye, FileSpreadsheet, RefreshCw, Filter, Sparkles, Building2 } from 'lucide-react';
 import { Building, HKSubmission, HKItemDefinition } from '../types';
 import { exportBuildingToChecklistExcel, calculateBuildingFrequencyStats } from '../utils/excelHelper';
-import { FREQUENCY_CATEGORIES } from '../data/defaultData';
+import { FREQUENCY_CATEGORIES, getCategoriesForBuilding, getItemsForBuilding, isKelas5Building, isKelas2Building, isKelas3Building } from '../data/defaultData';
 
 interface ExcelRealtimeTableProps {
   buildings: Building[];
@@ -27,17 +27,21 @@ export const ExcelRealtimeTable: React.FC<ExcelRealtimeTableProps> = ({
   const [selectedFreqFilter, setSelectedFreqFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'complete' | 'missing'>('all');
 
-  const stats = calculateBuildingFrequencyStats(selectedBuilding.id, submissions, items);
-  const totalItemsCount = items.length;
+  const buildingCategories = getCategoriesForBuilding(selectedBuilding);
+  const buildingItems = getItemsForBuilding(selectedBuilding, items);
+  const totalItemsCount = buildingItems.length;
   const buildingSubs = submissions.filter((s) => s.buildingId === selectedBuilding.id);
-  const completedSubsCount = items.filter((item) =>
+  const completedSubsCount = buildingItems.filter((item) =>
     buildingSubs.some((s) => s.itemId === item.id && s.photoUrl)
   ).length;
-  const missingSubsCount = totalItemsCount - completedSubsCount;
-  const overallPercentage = Math.round((completedSubsCount / totalItemsCount) * 100);
+  const missingSubsCount = Math.max(0, totalItemsCount - completedSubsCount);
+  const overallPercentage = totalItemsCount > 0 ? Math.round((completedSubsCount / totalItemsCount) * 100) : 0;
+  const isK5 = isKelas5Building(selectedBuilding);
+  const isK2 = isKelas2Building(selectedBuilding);
+  const isK3 = isKelas3Building(selectedBuilding);
 
   // Filtered rows for the Excel View
-  const filteredItems = items.filter((item) => {
+  const filteredItems = buildingItems.filter((item) => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()));
     
@@ -68,6 +72,11 @@ export const ExcelRealtimeTable: React.FC<ExcelRealtimeTableProps> = ({
                 LIVE EXCEL REAL-TIME
               </span>
               <span className="text-xs text-emerald-100">Database Checklist Terintegrasi</span>
+              {selectedBuilding.buildingClass && (
+                <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-md">
+                  {selectedBuilding.buildingClass}
+                </span>
+              )}
             </div>
             <h2 className="text-base sm:text-lg font-black text-white tracking-tight">
               Matriks Data Excel: <span className="underline decoration-emerald-300">{selectedBuilding.name}</span>
@@ -94,9 +103,10 @@ export const ExcelRealtimeTable: React.FC<ExcelRealtimeTableProps> = ({
         <span className="text-xs font-bold text-slate-500 self-center mr-1 whitespace-nowrap">Sheet Gedung:</span>
         {buildings.map((b) => {
           const isSelected = b.id === selectedBuilding.id;
+          const bItems = getItemsForBuilding(b, items);
           const bSubs = submissions.filter((s) => s.buildingId === b.id);
-          const bCompleted = items.filter((item) => bSubs.some((s) => s.itemId === item.id && s.photoUrl)).length;
-          const bPct = Math.round((bCompleted / items.length) * 100);
+          const bCompleted = bItems.filter((item) => bSubs.some((s) => s.itemId === item.id && s.photoUrl)).length;
+          const bPct = bItems.length > 0 ? Math.round((bCompleted / bItems.length) * 100) : 0;
 
           return (
             <button
@@ -154,7 +164,15 @@ export const ExcelRealtimeTable: React.FC<ExcelRealtimeTableProps> = ({
         <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-2xl">
           <div className="text-[11px] text-slate-500 font-semibold">Total Item Standar HK</div>
           <div className="text-lg font-extrabold text-slate-900 mt-0.5">{totalItemsCount} Pekerjaan</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Harian, Mingguan & Bulanan</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">
+            {isK5
+              ? 'Khusus Kelas 5 (Mingguan & Bulanan)'
+              : isK2
+              ? 'Khusus Kelas 2 (Harian, Mingguan & Bulanan)'
+              : isK3
+              ? 'Khusus Kelas 3 (Harian, Mingguan & Bulanan)'
+              : 'Harian, Mingguan & Bulanan'}
+          </div>
         </div>
       </div>
 
@@ -166,7 +184,7 @@ export const ExcelRealtimeTable: React.FC<ExcelRealtimeTableProps> = ({
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Cari item / sampah / toilet..."
+              placeholder="Cari item / sampah / lantai..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600"
@@ -179,11 +197,12 @@ export const ExcelRealtimeTable: React.FC<ExcelRealtimeTableProps> = ({
             onChange={(e) => setSelectedFreqFilter(e.target.value)}
             className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-emerald-600"
           >
-            <option value="all">Semua Frekuensi</option>
-            <option value="harian">Kegiatan Harian</option>
-            <option value="1x_seminggu">Kegiatan 1x Seminggu</option>
-            <option value="2x_seminggu">Kegiatan 2x Seminggu</option>
-            <option value="1x_sebulan">Kegiatan 1x Sebulan</option>
+            <option value="all">Semua Frekuensi ({buildingCategories.length})</option>
+            {buildingCategories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
           </select>
 
           {/* Status Filter */}
@@ -199,7 +218,7 @@ export const ExcelRealtimeTable: React.FC<ExcelRealtimeTableProps> = ({
         </div>
 
         <div className="text-xs text-slate-500 font-mono">
-          {filteredItems.length} dari {items.length} baris
+          {filteredItems.length} dari {buildingItems.length} baris
         </div>
       </div>
 
@@ -212,10 +231,8 @@ export const ExcelRealtimeTable: React.FC<ExcelRealtimeTableProps> = ({
               <th className="py-2.5 px-3 min-w-[140px] border-r border-slate-200">Frekuensi</th>
               <th className="py-2.5 px-3 min-w-[200px] border-r border-slate-200">Item Pekerjaan</th>
               <th className="py-2.5 px-3 min-w-[120px] text-center border-r border-slate-200">Status Foto</th>
-              <th className="py-2.5 px-3 min-w-[110px] text-center border-r border-slate-200">Kondisi</th>
               <th className="py-2.5 px-3 min-w-[120px] text-center border-r border-slate-200">Bukti Foto</th>
-              <th className="py-2.5 px-3 min-w-[140px] border-r border-slate-200">Waktu & Petugas</th>
-              <th className="py-2.5 px-3 min-w-[160px] border-r border-slate-200">Catatan</th>
+              <th className="py-2.5 px-3 min-w-[140px] border-r border-slate-200">Waktu &amp; Petugas</th>
               <th className="py-2.5 px-3 min-w-[90px] text-center">Aksi</th>
             </tr>
           </thead>
@@ -223,7 +240,7 @@ export const ExcelRealtimeTable: React.FC<ExcelRealtimeTableProps> = ({
             {filteredItems.map((item, idx) => {
               const sub = buildingSubs.find((s) => s.itemId === item.id && s.photoUrl);
               const isDone = !!sub;
-              const freqCat = FREQUENCY_CATEGORIES.find((c) => c.id === item.frequency);
+              const freqCat = buildingCategories.find((c) => c.id === item.frequency) || FREQUENCY_CATEGORIES.find((c) => c.id === item.frequency);
 
               return (
                 <tr
@@ -267,21 +284,6 @@ export const ExcelRealtimeTable: React.FC<ExcelRealtimeTableProps> = ({
                     )}
                   </td>
 
-                  {/* Kondisi Baik/Bersih */}
-                  <td className="py-2.5 px-3 text-center border-r border-slate-200">
-                    {sub ? (
-                      <span className={`px-2.5 py-0.5 rounded font-bold text-[11px] ${
-                        sub.conditionGood
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-amber-100 text-amber-800'
-                      }`}>
-                        {sub.conditionGood ? 'YA (Bersih)' : 'TIDAK (Kotor)'}
-                      </span>
-                    ) : (
-                      <span className="text-slate-400 text-[11px] italic">Belum Diperiksa</span>
-                    )}
-                  </td>
-
                   {/* Bukti Foto (Thumbnail) */}
                   <td className="py-2.5 px-3 text-center border-r border-slate-200">
                     {sub?.photoUrl ? (
@@ -315,19 +317,8 @@ export const ExcelRealtimeTable: React.FC<ExcelRealtimeTableProps> = ({
                         <div className="font-mono text-[11px] text-slate-800 font-semibold">
                           {new Date(sub.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
                         </div>
-                        <div className="text-[10px] text-slate-500">{sub.officerName}</div>
+                        <div className="text-[10px] text-slate-500">{sub.officerName || 'Petugas HK'}</div>
                       </div>
-                    ) : (
-                      <span className="text-slate-400 text-[11px]">-</span>
-                    )}
-                  </td>
-
-                  {/* Catatan */}
-                  <td className="py-2.5 px-3 border-r border-slate-200 text-slate-700">
-                    {sub?.notes ? (
-                      <span className="text-[11px] text-slate-600 line-clamp-2" title={sub.notes}>
-                        {sub.notes}
-                      </span>
                     ) : (
                       <span className="text-slate-400 text-[11px]">-</span>
                     )}
@@ -342,7 +333,7 @@ export const ExcelRealtimeTable: React.FC<ExcelRealtimeTableProps> = ({
                           ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
                           : 'bg-rose-600 hover:bg-rose-700 text-white shadow-xs'
                       }`}
-                      title={isDone ? 'Update Foto / Catatan' : 'Input Checklist & Ambil Foto'}
+                      title={isDone ? 'Update Foto Bukti' : 'Input Checklist & Ambil Foto'}
                     >
                       <span>{isDone ? 'Ubah' : '+ Foto'}</span>
                     </button>
@@ -353,7 +344,7 @@ export const ExcelRealtimeTable: React.FC<ExcelRealtimeTableProps> = ({
 
             {filteredItems.length === 0 && (
               <tr>
-                <td colSpan={9} className="text-center py-10 text-slate-400">
+                <td colSpan={7} className="text-center py-10 text-slate-400">
                   Tidak ada item pekerjaan yang cocok dengan pencarian / filter.
                 </td>
               </tr>

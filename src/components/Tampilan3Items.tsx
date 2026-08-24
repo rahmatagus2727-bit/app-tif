@@ -1,6 +1,16 @@
 import React, { useState } from 'react';
 import { Building, FrequencyType, HKItemDefinition, HKSubmission } from '../types';
-import { FREQUENCY_CATEGORIES } from '../data/defaultData';
+import {
+  FREQUENCY_CATEGORIES,
+  getCategoriesForBuilding,
+  getItemsForBuilding,
+  isKelas5Building,
+  isKelas2Building,
+  isKelas3Building,
+  getItemMonthlyPhotoQuota,
+  getCategoryMonthlyPhotoQuotaInfo
+} from '../data/defaultData';
+import { getBuildingStatsForDate } from '../utils/dateProgressHelper';
 import {
   ArrowLeft,
   ChevronRight,
@@ -24,6 +34,7 @@ interface Tampilan3ItemsProps {
   onBackToStep2: () => void;
   onViewPhoto: (sub: HKSubmission) => void;
   onAddItem: (name: string, description: string, frequency: FrequencyType) => void;
+  selectedDateStr?: string;
 }
 
 export const Tampilan3Items: React.FC<Tampilan3ItemsProps> = ({
@@ -35,24 +46,45 @@ export const Tampilan3Items: React.FC<Tampilan3ItemsProps> = ({
   onBackToStep2,
   onViewPhoto,
   onAddItem,
+  selectedDateStr = '2026-08-20',
 }) => {
   const [isAddingNewItem, setIsAddingNewItem] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemDesc, setNewItemDesc] = useState('');
 
-  const currentCategory = FREQUENCY_CATEGORIES.find((c) => c.id === frequency) || {
+  const selectedDayNum = parseInt(selectedDateStr.split('-')[2], 10) || 20;
+
+  const buildingCategories = getCategoriesForBuilding(building);
+  const currentCategory = buildingCategories.find((c) => c.id === frequency) ||
+    FREQUENCY_CATEGORIES.find((c) => c.id === frequency) || {
+      id: frequency,
+      label: 'Kegiatan HK',
+      subLabel: '',
+    };
+
+  const buildingItems = getItemsForBuilding(building, items);
+  const categoryItems = buildingItems.filter((i) => i.frequency === frequency);
+  
+  // Filter submissions for this building & date
+  const buildingSubs = submissions.filter((s) => s.buildingId === building.id);
+  const isK5 = isKelas5Building(building);
+  const isK2 = isKelas2Building(building);
+  const isK3 = isKelas3Building(building);
+
+  const quotaInfo = getCategoryMonthlyPhotoQuotaInfo(frequency, building, items);
+
+  const buildingStats = getBuildingStatsForDate(building, items, submissions, selectedDateStr);
+  const currentCategoryStat = buildingStats.categoryStats[frequency] || {
     id: frequency,
-    label: 'Kegiatan HK',
-    subLabel: '',
+    label: currentCategory.label,
+    totalItems: categoryItems.length,
+    completedCount: 0,
+    percentage: 0,
+    isCompleted: false,
   };
 
-  const categoryItems = items.filter((i) => i.frequency === frequency);
-  const buildingSubs = submissions.filter((s) => s.buildingId === building.id);
-
-  const completedCount = categoryItems.filter((i) =>
-    buildingSubs.some((s) => s.itemId === i.id && s.photoUrl)
-  ).length;
-  const percentage = categoryItems.length > 0 ? Math.round((completedCount / categoryItems.length) * 100) : 0;
+  const completedCount = currentCategoryStat.completedCount;
+  const percentage = currentCategoryStat.percentage;
 
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +104,7 @@ export const Tampilan3Items: React.FC<Tampilan3ItemsProps> = ({
             <button
               onClick={onBackToStep2}
               className="p-1.5 rounded-full hover:bg-white/20 transition text-white"
-              title="Kembali ke Tampilan 2"
+              title="Kembali ke Tampilan 2 (Pilih Kategori)"
               id="back-to-step2-btn"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -84,6 +116,11 @@ export const Tampilan3Items: React.FC<Tampilan3ItemsProps> = ({
               <div className="text-[11px] text-rose-100 flex items-center gap-1 font-medium">
                 <Building2 className="w-3 h-3" />
                 <span>{building.name} ({building.code})</span>
+                {building.buildingClass && (
+                  <span className="ml-1 px-1.5 py-0.2 bg-white/20 rounded text-[10px] font-bold">
+                    {building.buildingClass}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -141,15 +178,68 @@ export const Tampilan3Items: React.FC<Tampilan3ItemsProps> = ({
         )}
       </div>
 
-      {/* Progress Summary Card */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 flex items-center justify-between shadow-xs">
-        <div>
-          <div className="text-xs text-slate-500 font-medium">Progres Kelengkapan Foto Kategori Ini:</div>
-          <div className="text-xl font-black text-slate-900 font-sans mt-0.5">
-            {percentage}% <span className="text-xs font-semibold text-slate-500">({completedCount}/{categoryItems.length} Selesai)</span>
+      {/* Info Kelas 5 Notice */}
+      {isK5 && (
+        <div className="bg-emerald-50 border border-emerald-200/80 rounded-2xl p-3.5 text-xs text-emerald-900 flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded-md bg-emerald-200/80 font-mono font-black text-[10px] text-emerald-900">
+              KELAS 5 • {frequency === '1x_seminggu' ? 'MINGGUAN (3 ITEM)' : 'BULANAN (3 ITEM)'}
+            </span>
+            <span className="font-medium">
+              {frequency === '1x_seminggu'
+                ? 'Daftar Kegiatan Mingguan: Lantai (1x seminggu), Sampah Ruangan (1x seminggu), Sampah TPS (1x seminggu).'
+                : 'Daftar Kegiatan Bulanan: Dinding (1x sebulan), Plafon (1x 3 bulan), Saluran air (1x sebulan).'}
+            </span>
           </div>
         </div>
-        <div className="w-28 bg-slate-100 h-2.5 rounded-full overflow-hidden">
+      )}
+
+      {/* Info Kelas 2 Notice */}
+      {isK2 && (
+        <div className="bg-blue-50 border border-blue-200/80 rounded-2xl p-3.5 text-xs text-blue-900 flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded-md bg-blue-200/80 font-mono font-black text-[10px] text-blue-900">
+              KELAS 2 • {frequency === 'harian' ? 'HARIAN (5 ITEM)' : frequency === '1x_seminggu' ? 'MINGGUAN (1 ITEM)' : 'BULANAN (9 ITEM)'}
+            </span>
+            <span className="font-medium">
+              {frequency === 'harian' && 'Daftar Kegiatan Harian: Lantai (5x seminggu), Sampah ruangan (2x sehari), Pembersihan meubelair (1x sehari), Tissue roll (3x sehari), Kebersihan toilet (4x sehari).'}
+              {frequency === '1x_seminggu' && 'Daftar Kegiatan Mingguan: Sampah TPS (2 x seminggu).'}
+              {frequency === '1x_sebulan' && 'Daftar Kegiatan Bulanan: Pembersihan dinding (2x/bln), Lantai (triwulan), Lantai keramik (4x/bln), Plafon (4x/bln), Saluran air (2x/bln), Gordyn & blind (1x/bln), Pest control (2x/bln), Hygiene service (1x/bln), Hygiene unit (2x/bln).'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Info Kelas 3 Notice */}
+      {isK3 && (
+        <div className="bg-emerald-50 border border-emerald-200/80 rounded-2xl p-3.5 text-xs text-emerald-900 flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded-md bg-emerald-200/80 font-mono font-black text-[10px] text-emerald-900">
+              KELAS 3 • {frequency === 'harian' ? 'HARIAN (4 ITEM)' : frequency === '1x_seminggu' ? 'MINGGUAN (2 ITEM)' : 'BULANAN (9 ITEM)'}
+            </span>
+            <span className="font-medium">
+              {frequency === 'harian' && 'Daftar Kegiatan Harian: Sampah ruangan (1x sehari), Pembersihan meubelair (1x sehari), Tissue roll (3x sehari), Kebersihan toilet (3x sehari).'}
+              {frequency === '1x_seminggu' && 'Daftar Kegiatan Mingguan: Pembersihan dan perawatan lantai (2x seminggu), Sampah TPS (2x seminggu).'}
+              {frequency === '1x_sebulan' && 'Daftar Kegiatan Bulanan: Pembersihan dinding (1x/bln), Lantai (triwulan), Lantai keramik (1x/bln), Plafon (1x/bln), Saluran air (2x/bln), Gordyn & blind (1x/bln), Pest control (1x/bln), Hygiene service (1x/bln), Hygiene unit (1x/bln).'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Progress Summary Card */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-slate-500 font-medium">Progres Kelengkapan Foto Kategori Ini:</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-900 text-white">
+              Target Kategori: {quotaInfo.totalTargetPhotos} Foto/Bulan
+            </span>
+          </div>
+          <div className="text-xl font-black text-slate-900 font-sans mt-0.5">
+            {percentage}% <span className="text-xs font-semibold text-slate-500">({completedCount}/{categoryItems.length} Item Selesai)</span>
+          </div>
+        </div>
+        <div className="w-full sm:w-36 bg-slate-100 h-2.5 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${percentage === 100 ? 'bg-emerald-500' : 'bg-gradient-to-r from-amber-500 to-rose-600'}`}
             style={{ width: `${percentage}%` }}
@@ -164,14 +254,16 @@ export const Tampilan3Items: React.FC<Tampilan3ItemsProps> = ({
             Daftar Item Pekerjaan ({categoryItems.length} Item Tersedia):
           </h2>
           <span className="text-[11px] text-rose-600 font-semibold">
-            Klik item untuk membuka Tampilan 4 (Form & Upload Foto)
+            Klik item untuk membuka Tampilan 4 (Form &amp; Upload Foto)
           </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {categoryItems.map((item, index) => {
-            const sub = buildingSubs.find((s) => s.itemId === item.id && s.photoUrl);
-            const isCompleted = !!sub;
+            const itemStatus = buildingStats.itemsMap[item.id];
+            const sub = itemStatus?.submission;
+            const isCompleted = !!itemStatus?.isCompleted;
+            const itemQuota = getItemMonthlyPhotoQuota(item, building);
 
             return (
               <div
@@ -212,14 +304,24 @@ export const Tampilan3Items: React.FC<Tampilan3ItemsProps> = ({
                     <span>{item.name}</span>
                   </h3>
 
+                  {/* Item Quota Target Badge */}
+                  <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                    <span className="px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200/80 font-mono font-bold text-[10.5px] text-rose-700">
+                      Target: {itemQuota.monthlyPhotos} Foto/Bulan
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-[10.5px] font-medium text-slate-600">
+                      {itemQuota.perPeriodText}
+                    </span>
+                  </div>
+
                   {item.description && (
-                    <p className="text-xs text-slate-500 mt-1.5 leading-relaxed line-clamp-2">
+                    <p className="text-xs text-slate-500 mt-2 leading-relaxed line-clamp-2">
                       {item.description}
                     </p>
                   )}
 
                   {/* Photo Preview if already completed */}
-                  {sub && sub.photoUrl && (
+                  {sub && sub.photoUrl ? (
                     <div className="mt-3 p-2 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center gap-3">
                       <img
                         src={sub.photoUrl}
@@ -229,10 +331,10 @@ export const Tampilan3Items: React.FC<Tampilan3ItemsProps> = ({
                       />
                       <div className="text-xs text-slate-600 flex-1">
                         <div className="font-bold text-emerald-700">
-                          {sub.conditionGood ? 'Kondisi: YA (Bersih)' : 'Kondisi: TIDAK (Kotor)'}
+                          Tugas Selesai (Foto Terlampir)
                         </div>
                         <div className="text-[10px] text-slate-400 mt-0.5">
-                          {new Date(sub.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                          {sub.timestamp ? new Date(sub.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '10:15'} WIB
                         </div>
                       </div>
                       <button
@@ -247,7 +349,12 @@ export const Tampilan3Items: React.FC<Tampilan3ItemsProps> = ({
                         <Eye className="w-4 h-4" />
                       </button>
                     </div>
-                  )}
+                  ) : isCompleted ? (
+                    <div className="mt-3 p-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-xs text-emerald-800">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="font-semibold">Foto terverifikasi pada Tgl {selectedDayNum}</span>
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Card Action Footer */}

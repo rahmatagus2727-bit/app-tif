@@ -11,9 +11,12 @@ import {
   CheckCircle2,
   Filter,
   LogOut,
+  Calendar,
 } from 'lucide-react';
 import { UserProfile, Building, HKSubmission, HKItemDefinition } from '../types';
+import { getItemsForBuilding } from '../data/defaultData';
 import { MonthlyTimelineWidget } from './MonthlyTimelineWidget';
+import { getBuildingStatsForDate } from '../utils/dateProgressHelper';
 
 interface HomeScreenProps {
   user: UserProfile;
@@ -25,6 +28,8 @@ interface HomeScreenProps {
   submissions: HKSubmission[];
   items: HKItemDefinition[];
   onLogout?: () => void;
+  selectedDateStr?: string;
+  onSelectDate?: (dateStr: string, dayNum: number) => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -37,11 +42,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   submissions,
   items,
   onLogout,
+  selectedDateStr: propSelectedDateStr = '2026-08-20',
+  onSelectDate: propOnSelectDate,
 }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClass, setSelectedClass] = useState<string>('all');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [localDateStr, setLocalDateStr] = useState<string>(propSelectedDateStr);
+
+  const activeDateStr = propSelectedDateStr || localDateStr;
+  const selectedDayNum = parseInt(activeDateStr.split('-')[2], 10) || 20;
 
   // Dynamic Greeting based on client hour
   const getGreeting = () => {
@@ -57,6 +68,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     setTimeout(() => {
       setIsRefreshing(false);
     }, 500);
+  };
+
+  const handleDateSelect = (dateStr: string, dayNum: number) => {
+    setLocalDateStr(dateStr);
+    if (propOnSelectDate) {
+      propOnSelectDate(dateStr, dayNum);
+    }
   };
 
   // Filter buildings by search & class
@@ -214,6 +232,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       <MonthlyTimelineWidget
         buildings={buildings}
         submissions={submissions}
+        selectedDateStr={activeDateStr}
+        onSelectDate={handleDateSelect}
         onSelectBuilding={onSelectBuilding}
       />
 
@@ -244,21 +264,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
       </div>
 
-      {/* 4. DAFTAR GEDUNG OPERASIONAL HK & PROGRES CHECKLIST */}
+      {/* 5. DAFTAR GEDUNG OPERASIONAL HK & DUAL PROGRES CHECKLIST REAL-TIME PER TANGGAL */}
       <div className="space-y-3 pt-1">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h3 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight">
-              Daftar 15 Gedung Operasional HK
-            </h3>
-            <p className="text-xs text-slate-500 font-medium">
-              Witel Surabaya Selatan • Kelas 2, Kelas 3, dan Kelas 5
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight">
+                Daftar 15 Gedung Operasional HK
+              </h3>
+              <span className="px-2.5 py-0.5 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-mono font-extrabold shadow-xs flex items-center gap-1">
+                <Calendar className="w-3 h-3 text-rose-600" />
+                <span>Tgl {selectedDayNum} Agustus 2026</span>
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Menampilkan <span className="font-bold text-rose-600">Persentase Harian</span> (acuan utama hari ini) dan <span className="font-bold text-slate-800">Persentase Gabungan</span> (rata-rata Harian, Mingguan, Bulanan).
             </p>
           </div>
 
           <button
             onClick={onOpenChecklist}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-extrabold transition shadow-xs border border-rose-200/80 self-start sm:self-auto"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-extrabold transition shadow-xs border border-rose-200/80 self-start sm:self-auto cursor-pointer"
             id="home-btn-buka-semua-gedung"
           >
             <span>Buka Checklist</span>
@@ -284,7 +310,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <button
                 key={cls}
                 onClick={() => setSelectedClass(cls)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
                   selectedClass === cls
                     ? 'bg-rose-600 text-white shadow-xs'
                     : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -304,21 +330,35 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </div>
           ) : (
             filteredBuildings.map((building) => {
-              const bldSubmissions = submissions.filter((s) => s.buildingId === building.id);
-              const totalItems = items.length;
-              const completedCount = bldSubmissions.filter((s) => s.photoUrl).length;
-              const pct =
-                totalItems > 0 ? Math.min(100, Math.round((completedCount / totalItems) * 100)) : 0;
+              // Calculate detailed stats per selected date
+              const stats = getBuildingStatsForDate(
+                building,
+                items,
+                submissions,
+                activeDateStr
+              );
 
-              const isDone = pct === 100;
+              const {
+                harianPercentage,
+                compositePercentage,
+                categoryStats,
+                hasHarian,
+                isHoliday,
+                statusLabel,
+                totalCompletedCount,
+                totalItems,
+              } = stats;
+
+              const isAllDone = compositePercentage === 100 && totalItems > 0;
 
               return (
                 <div
                   key={building.id}
                   onClick={() => onSelectBuilding(building)}
                   className="bg-white border border-slate-200/90 hover:border-rose-400 rounded-3xl p-4 sm:p-5 shadow-sm hover:shadow-md transition cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
+                  id={`home-building-card-${building.id}`}
                 >
-                  <div className="space-y-1.5 flex-1">
+                  <div className="space-y-2 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[11px] font-mono font-bold text-rose-600 bg-rose-50 px-2.5 py-0.5 rounded-lg border border-rose-100">
                         {building.code}
@@ -330,14 +370,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                       )}
                       <span
                         className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
-                          isDone
+                          isAllDone
                             ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                            : pct > 0
+                            : isHoliday
+                            ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                            : compositePercentage > 0
                             ? 'bg-amber-100 text-amber-800 border border-amber-200'
                             : 'bg-slate-100 text-slate-600 border border-slate-200'
                         }`}
                       >
-                        {isDone ? 'Selesai 100%' : pct > 0 ? `${pct}% Selesai` : 'Belum Mulai'}
+                        {statusLabel}
                       </span>
                     </div>
 
@@ -347,34 +389,86 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     </h4>
 
                     <p className="text-xs text-slate-500 font-medium">
-                      {building.address} • {completedCount} dari {totalItems} item terisi
+                      {building.address} •{' '}
+                      {isHoliday ? (
+                        <span className="text-rose-600 font-bold">Hari Libur</span>
+                      ) : (
+                        <span>
+                          <strong className="text-slate-800 font-bold">{totalCompletedCount}</strong> dari{' '}
+                          <strong className="text-slate-800 font-bold">{totalItems}</strong> total item pekerjaan
+                        </span>
+                      )}
                     </p>
 
-                    {/* Progress bar */}
-                    <div className="w-full bg-slate-100 rounded-full h-2 mt-2 overflow-hidden">
+                    {/* Breakdown per Kategori: Harian, Mingguan, Bulanan */}
+                    {!isHoliday && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                        {hasHarian && (
+                          <span className="px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200/80 text-[10.5px] font-bold text-rose-700">
+                            Harian: {categoryStats.harian.percentage}%
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200/80 text-[10.5px] font-bold text-blue-700">
+                          Mingguan: {categoryStats['1x_seminggu'].percentage}%
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200/80 text-[10.5px] font-bold text-emerald-700">
+                          Bulanan: {categoryStats['1x_sebulan'].percentage}%
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Dynamic Dual Progress bar */}
+                    <div className="w-full bg-slate-100 rounded-full h-2 mt-1 overflow-hidden">
                       <div
                         className={`h-2 rounded-full transition-all duration-500 ${
-                          isDone
+                          isAllDone
                             ? 'bg-emerald-500'
-                            : pct > 40
-                            ? 'bg-amber-500'
+                            : compositePercentage > 50
+                            ? 'bg-gradient-to-r from-amber-500 to-rose-500'
+                            : isHoliday
+                            ? 'bg-rose-400'
                             : 'bg-rose-500'
                         }`}
-                        style={{ width: `${Math.max(5, pct)}%` }}
+                        style={{ width: `${compositePercentage}%` }}
                       />
                     </div>
                   </div>
 
-                  {/* Right Action */}
-                  <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                    <div className="text-left sm:text-right">
-                      <div className="text-[10px] text-slate-400 font-medium">Progres Gedung</div>
-                      <div className="text-sm font-mono font-extrabold text-slate-800">
-                        {pct}%
+                  {/* Right Dual Percentage Indicators (Persentase Harian + Persentase Gabungan) */}
+                  <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 shrink-0">
+                    <div className="flex items-center sm:flex-col sm:items-end gap-3 sm:gap-0.5">
+                      {/* 1. Persentase Harian (Acuan Harian) */}
+                      <div className="text-left sm:text-right">
+                        <div className="text-[10px] font-bold text-rose-600 uppercase tracking-tight flex items-center gap-1 sm:justify-end">
+                          <span>Harian (Tgl {selectedDayNum})</span>
+                        </div>
+                        <div className="text-sm sm:text-base font-mono font-black text-rose-700">
+                          {isHoliday ? 'LIBUR' : `${harianPercentage}%`}
+                        </div>
+                      </div>
+
+                      {/* 2. Persentase Gabungan (Harian + Mingguan + Bulanan) */}
+                      <div className="text-left sm:text-right pt-0.5 sm:border-t sm:border-slate-100 sm:mt-1">
+                        <div className="text-[9.5px] font-bold text-slate-500 uppercase tracking-tight">
+                          Gabungan (Total)
+                        </div>
+                        <div
+                          className={`text-base sm:text-lg font-mono font-black ${
+                            isAllDone
+                              ? 'text-emerald-700'
+                              : isHoliday
+                              ? 'text-rose-600'
+                              : compositePercentage > 0
+                              ? 'text-slate-900'
+                              : 'text-slate-400'
+                          }`}
+                        >
+                          {isHoliday ? 'LIBUR' : `${compositePercentage}%`}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="w-9 h-9 rounded-full bg-slate-50 group-hover:bg-rose-600 group-hover:text-white text-slate-400 flex items-center justify-center transition shadow-inner">
+                    <div className="w-8 h-8 rounded-full bg-slate-50 group-hover:bg-rose-600 group-hover:text-white text-slate-400 flex items-center justify-center transition shadow-inner">
                       <ChevronRight className="w-4 h-4" />
                     </div>
                   </div>

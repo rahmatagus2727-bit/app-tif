@@ -156,6 +156,507 @@ export const FREQUENCY_CATEGORIES: { id: FrequencyType; label: string; subLabel:
   { id: '1x_sebulan', label: 'Bulanan (1x Sebulan)', subLabel: 'Deep cleaning & general check bulanan', shortCode: 'BULANAN' },
 ];
 
+// KATEGORI KHUSUS GEDUNG KELAS 5 (GUDANG KALIBRASI, GUDANG MELAWAI, GDG REFURBISH)
+export const KELAS_5_CATEGORIES: { id: FrequencyType; label: string; subLabel: string; shortCode: string }[] = [
+  { id: '1x_seminggu', label: 'Kegiatan Mingguan', subLabel: '1 foto/minggu • 4 foto/bulan per item (Total 12 foto/bulan)', shortCode: 'MINGGUAN' },
+  { id: '1x_sebulan', label: 'Kegiatan Bulanan', subLabel: '1 foto/bulan & triwulan (Total 3 foto/bulan)', shortCode: 'BULANAN' },
+];
+
+// KATEGORI KHUSUS GEDUNG KELAS 2 (KANTOR WITEL SURABAYA SLTN, STO INJOKO)
+export const KELAS_2_CATEGORIES: { id: FrequencyType; label: string; subLabel: string; shortCode: string }[] = [
+  { id: 'harian', label: 'Kegiatan Harian', subLabel: '1 foto/hari per item • 20 foto/bulan per item (Total 100 foto/bulan)', shortCode: 'HARIAN' },
+  { id: '1x_seminggu', label: 'Kegiatan Mingguan', subLabel: '2x seminggu (2 foto/minggu) • 8 foto/bulan (Total 8 foto/bulan)', shortCode: 'MINGGUAN' },
+  { id: '1x_sebulan', label: 'Kegiatan Bulanan', subLabel: '1x, 2x, 4x sebulan & triwulan (Total 19 foto/bulan)', shortCode: 'BULANAN' },
+];
+
+// DAFTAR ITEM PEKERJAAN KHUSUS KELAS 2 (PERSIS SESUAI SPESIFIKASI USER)
+export const KELAS_2_HK_ITEMS: HKItemDefinition[] = [
+  // 1. Kegiatan Harian (5 items)
+  {
+    id: 'k2-h-lantai',
+    name: 'Lantai',
+    frequency: 'harian',
+    description: '5 x seminggu - Pembersihan & perawatan lantai ruangan kerja, koridor & lobi'
+  },
+  {
+    id: 'k2-h-sampah-ruangan',
+    name: 'Sampah ruangan',
+    frequency: 'harian',
+    description: '2 x sehari - Pengosongan dan pembersihan tempat sampah ruangan gedung'
+  },
+  {
+    id: 'k2-h-meubelair',
+    name: 'Pembersihan meubelair',
+    frequency: 'harian',
+    description: 'Kursi, meja, dan lemari, TV, telephone, kulkas 1 x sehari'
+  },
+  {
+    id: 'k2-h-tissue-roll',
+    name: 'Tissue roll',
+    frequency: 'harian',
+    description: '3 x sehari - Pengecekan, penyediaan dan penggantian tissue roll toilet'
+  },
+  {
+    id: 'k2-h-kebersihan-toilet',
+    name: 'Kebersihan toilet',
+    frequency: 'harian',
+    description: 'Dinding, kaca, wastafel, closet, pintu, urinoir 4 x sehari'
+  },
+
+  // 2. Kegiatan Mingguan (1 item)
+  {
+    id: 'k2-w-sampah-tps',
+    name: 'Sampah TPS',
+    frequency: '1x_seminggu',
+    description: '2 x seminggu - Pengangkutan dan pembuangan sampah ke TPS gedung'
+  },
+
+  // 3. Kegiatan Bulanan (9 items)
+  {
+    id: 'k2-m-dinding',
+    name: 'Pembersihan dinding',
+    frequency: '1x_sebulan',
+    description: 'Dinding 2 x sebulan - Pembersihan debu, sarang laba-laba & noda dinding'
+  },
+  {
+    id: 'k2-m-lantai-triwulan',
+    name: 'Lantai',
+    frequency: '1x_sebulan',
+    description: '1 x setiap triwulan - General cleaning & perawatan berkala lantai menyeluruh'
+  },
+  {
+    id: 'k2-m-lantai-keramik',
+    name: 'Lantai keramik/granit/marmer',
+    frequency: '1x_sebulan',
+    description: '4 x sebulan - Buffing, scrubbing & pembersihan khusus lantai keramik/granit/marmer'
+  },
+  {
+    id: 'k2-m-plafon',
+    name: 'Pembersihan plafon',
+    frequency: '1x_sebulan',
+    description: 'Plafon 4 x sebulan - Pembersihan debu, sarang laba-laba & plafon gedung'
+  },
+  {
+    id: 'k2-m-saluran-air',
+    name: 'Pembersihan indoor bangunan',
+    frequency: '1x_sebulan',
+    description: 'Saluran air 2 x sebulan - Pembersihan saluran air dan drainase indoor'
+  },
+  {
+    id: 'k2-m-gordyn-blind',
+    name: 'Gordyn dan vertical blind',
+    frequency: '1x_sebulan',
+    description: '1 x sebulan - Pembersihan dan penyedotan debu gordyn & vertical blind'
+  },
+  {
+    id: 'k2-m-pest-control',
+    name: 'Pekerjaan pest and rodent control',
+    frequency: '1x_sebulan',
+    description: 'Lingkungan di dalam dan luar gedung 2 x sebulan'
+  },
+  {
+    id: 'k2-m-hygiene-service',
+    name: 'Pekerjaan hygiene service',
+    frequency: '1x_sebulan',
+    description: 'Pengharum ruangan 1 x sebulan - Pengecekan & isi ulang pengharum ruangan'
+  },
+  {
+    id: 'k2-m-hygiene-unit',
+    name: 'Hygiene unit',
+    frequency: '1x_sebulan',
+    description: '2 x sebulan - Perawatan, sanitasi & pergantian refill unit hygiene'
+  },
+];
+
+// KATEGORI KHUSUS GEDUNG KELAS 3 (STO KAPUAS, DARMO, DINOYO, RUNGKUT, WARU, MSC KALIBRASI, MSC MELAWAI, DLL)
+export const KELAS_3_CATEGORIES: { id: FrequencyType; label: string; subLabel: string; shortCode: string }[] = [
+  { id: 'harian', label: 'Kegiatan Harian', subLabel: '1 foto/hari per item • 20 foto/bulan per item (Total 80 foto/bulan)', shortCode: 'HARIAN' },
+  { id: '1x_seminggu', label: 'Kegiatan Mingguan', subLabel: '2x seminggu (2 foto/minggu) • 8 foto/bulan per item (Total 16 foto/bulan)', shortCode: 'MINGGUAN' },
+  { id: '1x_sebulan', label: 'Kegiatan Bulanan', subLabel: '1x, 2x sebulan & triwulan (Total 10 foto/bulan)', shortCode: 'BULANAN' },
+];
+
+// DAFTAR ITEM PEKERJAAN KHUSUS KELAS 3 (PERSIS SESUAI SPESIFIKASI USER)
+export const KELAS_3_HK_ITEMS: HKItemDefinition[] = [
+  // 1. Kegiatan Harian (4 items)
+  {
+    id: 'k3-h-sampah-ruangan',
+    name: 'Sampah ruangan',
+    frequency: 'harian',
+    description: '1 x sehari - Pengosongan dan pembersihan tempat sampah ruangan gedung'
+  },
+  {
+    id: 'k3-h-meubelair',
+    name: 'Pembersihan meubelair',
+    frequency: 'harian',
+    description: 'Kursi, meja, dan lemari, TV, telephone, kulkas 1 x sehari'
+  },
+  {
+    id: 'k3-h-tissue-roll',
+    name: 'Tissue roll',
+    frequency: 'harian',
+    description: '3 x sehari - Pengecekan, penyediaan dan penggantian tissue roll toilet'
+  },
+  {
+    id: 'k3-h-kebersihan-toilet',
+    name: 'Kebersihan toilet',
+    frequency: 'harian',
+    description: 'Dinding, kaca, wastafel, closet, pintu, urinoir 3 x sehari'
+  },
+
+  // 2. Kegiatan Mingguan (2 items)
+  {
+    id: 'k3-w-lantai-perawatan',
+    name: 'Pembersihan dan perawatan lantai',
+    frequency: '1x_seminggu',
+    description: 'Lantai 2 x seminggu - Penyapuan, pengepelan & perawatan lantai ruangan'
+  },
+  {
+    id: 'k3-w-sampah-tps',
+    name: 'Sampah TPS',
+    frequency: '1x_seminggu',
+    description: '2 x seminggu - Pengangkutan dan pembuangan sampah ke TPS gedung'
+  },
+
+  // 3. Kegiatan Bulanan (9 items)
+  {
+    id: 'k3-m-dinding',
+    name: 'Pembersihan dinding',
+    frequency: '1x_sebulan',
+    description: 'Dinding 1 x sebulan - Pembersihan debu, sarang laba-laba & noda dinding'
+  },
+  {
+    id: 'k3-m-lantai-triwulan',
+    name: 'Lantai',
+    frequency: '1x_sebulan',
+    description: '1 x setiap triwulan - General cleaning & perawatan berkala lantai menyeluruh'
+  },
+  {
+    id: 'k3-m-lantai-keramik',
+    name: 'Lantai keramik/granit/marmer',
+    frequency: '1x_sebulan',
+    description: '1 x sebulan - Buffing, scrubbing & pembersihan lantai keramik/granit/marmer'
+  },
+  {
+    id: 'k3-m-plafon',
+    name: 'Pembersihan plafon',
+    frequency: '1x_sebulan',
+    description: 'Plafon 1 x sebulan - Pembersihan debu, sarang laba-laba & plafon gedung'
+  },
+  {
+    id: 'k3-m-saluran-air',
+    name: 'Pembersihan indoor bangunan',
+    frequency: '1x_sebulan',
+    description: 'Saluran air 2 x sebulan - Pembersihan saluran air dan drainase indoor'
+  },
+  {
+    id: 'k3-m-gordyn-blind',
+    name: 'Gordyn dan vertical blind',
+    frequency: '1x_sebulan',
+    description: '1 x sebulan - Pembersihan dan penyedotan debu gordyn & vertical blind'
+  },
+  {
+    id: 'k3-m-pest-control',
+    name: 'Pekerjaan pest and rodent control',
+    frequency: '1x_sebulan',
+    description: 'Lingkungan di dalam dan luar gedung 1 x sebulan'
+  },
+  {
+    id: 'k3-m-hygiene-service',
+    name: 'Pekerjaan hygiene service',
+    frequency: '1x_sebulan',
+    description: 'Pengharum ruangan 1 x sebulan - Pengecekan & isi ulang pengharum ruangan'
+  },
+  {
+    id: 'k3-m-hygiene-unit',
+    name: 'Hygiene unit',
+    frequency: '1x_sebulan',
+    description: '1 x sebulan - Perawatan, sanitasi & pergantian refill unit hygiene'
+  },
+];
+
+// DAFTAR ITEM PEKERJAAN KHUSUS KELAS 5 (PERSIS SESUAI SPESIFIKASI USER)
+export const KELAS_5_HK_ITEMS: HKItemDefinition[] = [
+  // 1. Kegiatan Mingguan
+  {
+    id: 'k5-w-lantai',
+    name: 'Lantai',
+    frequency: '1x_seminggu',
+    description: '1 x seminggu - Pembersihan & pengepelan lantai area gudang'
+  },
+  {
+    id: 'k5-w-sampah-ruangan',
+    name: 'Sampah Ruangan',
+    frequency: '1x_seminggu',
+    description: '1 x seminggu - Pengosongan dan pembersihan tempat sampah ruangan gudang'
+  },
+  {
+    id: 'k5-w-sampah-tps',
+    name: 'Sampah TPS',
+    frequency: '1x_seminggu',
+    description: '1 x seminggu - Pengangkutan dan pembuangan sampah ke TPS gudang'
+  },
+
+  // 2. Kegiatan Bulanan
+  {
+    id: 'k5-m-dinding',
+    name: 'Dinding',
+    frequency: '1x_sebulan',
+    description: '1 x sebulan - Pembersihan debu, sarang laba-laba & noda dinding'
+  },
+  {
+    id: 'k5-m-plafon',
+    name: 'Plafon',
+    frequency: '1x_sebulan',
+    description: '1 x 3 bulan - Pembersihan plafon dan sudut-sudut atap gedung'
+  },
+  {
+    id: 'k5-m-saluran-air',
+    name: 'Saluran air',
+    frequency: '1x_sebulan',
+    description: '1 x sebulan - Pembersihan saluran air dan drainase luar/dalam'
+  },
+];
+
+// Helper: Cek apakah gedung merupakan Kelas 5
+export function isKelas5Building(building?: Building | { id?: string; buildingClass?: string; name?: string } | null): boolean {
+  if (!building) return false;
+  if (building.buildingClass === 'Kelas 5') return true;
+  if (building.id && ['bld-gud-03', 'bld-mlw-04', 'bld-rfb-07'].includes(building.id)) return true;
+  const name = (building.name || '').toUpperCase();
+  if (name.includes('GUDANG KALIBRASI') || name.includes('GUDANG MELAWAI') || name.includes('GDG REFURBISH')) return true;
+  return false;
+}
+
+// Helper: Cek apakah gedung merupakan Kelas 2 (KANTOR WITEL SURABAYA SLTN, STO INJOKO)
+export function isKelas2Building(building?: Building | { id?: string; buildingClass?: string; name?: string } | null): boolean {
+  if (!building) return false;
+  if (isKelas5Building(building)) return false;
+  if (building.buildingClass === 'Kelas 2') return true;
+  if (building.id && ['bld-lea-01', 'bld-sto-06'].includes(building.id)) return true;
+  const name = (building.name || '').toUpperCase();
+  if (name.includes('WITEL SURABAYA SLTN') || (name.includes('STO INJOKO') && !name.includes('REFURBISH') && !name.includes('KALIBRASI'))) return true;
+  return false;
+}
+
+// Helper: Cek apakah gedung merupakan Kelas 3 (MSC KALIBRASI, MSC MELAWAI, STO KAPUAS, DARMO, DINOYO, RUNGKUT, WARU, DLL)
+export function isKelas3Building(building?: Building | { id?: string; buildingClass?: string; name?: string } | null): boolean {
+  if (!building) return false;
+  if (isKelas5Building(building)) return false;
+  if (isKelas2Building(building)) return false;
+  if (building.buildingClass === 'Kelas 3') return true;
+  return true; // Default standard buildings in Witel Surabaya Selatan matrix belong to Kelas 3
+}
+
+// Helper: Ambil kategori frekuensi sesuai kelas gedung
+export function getCategoriesForBuilding(building?: Building | null) {
+  if (isKelas5Building(building)) {
+    return KELAS_5_CATEGORIES;
+  }
+  if (isKelas2Building(building)) {
+    return KELAS_2_CATEGORIES;
+  }
+  if (isKelas3Building(building)) {
+    return KELAS_3_CATEGORIES;
+  }
+  return FREQUENCY_CATEGORIES;
+}
+
+// Helper: Ambil item pekerjaan sesuai kelas gedung
+export function getItemsForBuilding(building?: Building | null, customItems: HKItemDefinition[] = []): HKItemDefinition[] {
+  if (isKelas5Building(building)) {
+    const customForK5 = customItems.filter(
+      (ci) => !DEFAULT_HK_ITEMS.some((di) => di.id === ci.id) &&
+              !KELAS_5_HK_ITEMS.some((ki) => ki.id === ci.id) &&
+              !KELAS_2_HK_ITEMS.some((k2) => k2.id === ci.id) &&
+              !KELAS_3_HK_ITEMS.some((k3) => k3.id === ci.id)
+    );
+    return [...KELAS_5_HK_ITEMS, ...customForK5];
+  }
+
+  if (isKelas2Building(building)) {
+    const customForK2 = customItems.filter(
+      (ci) => !DEFAULT_HK_ITEMS.some((di) => di.id === ci.id) &&
+              !KELAS_5_HK_ITEMS.some((ki) => ki.id === ci.id) &&
+              !KELAS_2_HK_ITEMS.some((k2) => k2.id === ci.id) &&
+              !KELAS_3_HK_ITEMS.some((k3) => k3.id === ci.id)
+    );
+    return [...KELAS_2_HK_ITEMS, ...customForK2];
+  }
+
+  if (isKelas3Building(building)) {
+    const customForK3 = customItems.filter(
+      (ci) => !DEFAULT_HK_ITEMS.some((di) => di.id === ci.id) &&
+              !KELAS_5_HK_ITEMS.some((ki) => ki.id === ci.id) &&
+              !KELAS_2_HK_ITEMS.some((k2) => k2.id === ci.id) &&
+              !KELAS_3_HK_ITEMS.some((k3) => k3.id === ci.id)
+    );
+    return [...KELAS_3_HK_ITEMS, ...customForK3];
+  }
+
+  const customForStandard = customItems.filter(
+    (ci) => !KELAS_5_HK_ITEMS.some((ki) => ki.id === ci.id) &&
+            !KELAS_2_HK_ITEMS.some((k2) => k2.id === ci.id) &&
+            !KELAS_3_HK_ITEMS.some((k3) => k3.id === ci.id)
+  );
+  return customForStandard.length > 0 ? customForStandard : DEFAULT_HK_ITEMS;
+}
+
+export interface ItemPhotoQuota {
+  perPeriodText: string;
+  monthlyPhotos: number;
+  explanation: string;
+  periodLabel: string;
+}
+
+export function getItemMonthlyPhotoQuota(item: HKItemDefinition, building?: Building | null): ItemPhotoQuota {
+  const isK5 = isKelas5Building(building);
+  const isK2 = isKelas2Building(building);
+  const isK3 = isKelas3Building(building);
+
+  // 1. HARIAN: 1 foto setiap hari per pekerjaan = 20 foto per bulan
+  if (item.frequency === 'harian') {
+    return {
+      perPeriodText: '1 foto / hari',
+      monthlyPhotos: 20,
+      periodLabel: 'Harian (1x/hari)',
+      explanation: 'Wajib 1 foto setiap hari per pekerjaan (Target 20 foto/bulan).',
+    };
+  }
+
+  // 2. MINGGUAN:
+  // - Kelas 5: 1x seminggu = 1 foto setiap minggu = 4 foto/bulan per pekerjaan
+  // - Kelas 2 & 3: 2x seminggu = 2 foto setiap minggu = 8 foto/bulan per pekerjaan
+  if (item.frequency === '1x_seminggu' || item.frequency === '2x_seminggu') {
+    if (isK5) {
+      return {
+        perPeriodText: '1 foto / minggu',
+        monthlyPhotos: 4,
+        periodLabel: 'Mingguan (1x/minggu)',
+        explanation: '1x seminggu: 1 foto setiap minggu (Target 4 foto/bulan per pekerjaan).',
+      };
+    }
+    return {
+      perPeriodText: '2 foto / minggu',
+      monthlyPhotos: 8,
+      periodLabel: 'Mingguan (2x/minggu)',
+      explanation: '2x seminggu: 2 foto setiap minggu (Target 8 foto/bulan per pekerjaan).',
+    };
+  }
+
+  // 3. BULANAN:
+  const desc = (item.description || '').toLowerCase();
+  const name = (item.name || '').toLowerCase();
+
+  if (desc.includes('4 x sebulan') || desc.includes('4x sebulan')) {
+    return {
+      perPeriodText: '4 foto / bulan',
+      monthlyPhotos: 4,
+      periodLabel: 'Bulanan (4x/bulan)',
+      explanation: '4 x sebulan = Target 4 foto per bulan.',
+    };
+  }
+
+  if (desc.includes('2 x sebulan') || desc.includes('2x sebulan')) {
+    return {
+      perPeriodText: '2 foto / bulan',
+      monthlyPhotos: 2,
+      periodLabel: 'Bulanan (2x/bulan)',
+      explanation: '2 x sebulan = Target 2 foto per bulan.',
+    };
+  }
+
+  if (desc.includes('triwulan') || desc.includes('3 bulan') || name.includes('triwulan')) {
+    return {
+      perPeriodText: '1 foto / bulan (Triwulan)',
+      monthlyPhotos: 1,
+      periodLabel: 'Triwulan (1x/3 bln)',
+      explanation: '1 x setiap triwulan / 3 bulan = Target 1 foto setiap bulan.',
+    };
+  }
+
+  return {
+    perPeriodText: '1 foto / bulan',
+    monthlyPhotos: 1,
+    periodLabel: 'Bulanan (1x/bulan)',
+    explanation: '1 x sebulan = Target 1 foto per bulan.',
+  };
+}
+
+export interface CategoryPhotoQuotaInfo {
+  totalTargetPhotos: number;
+  totalItems: number;
+  ruleExplanation: string;
+  perItemRule: string;
+}
+
+export function getCategoryMonthlyPhotoQuotaInfo(
+  frequency: FrequencyType,
+  building?: Building | null,
+  customItems: HKItemDefinition[] = []
+): CategoryPhotoQuotaInfo {
+  const items = getItemsForBuilding(building, customItems).filter((it) => it.frequency === frequency);
+  const totalItems = items.length;
+  let totalTargetPhotos = 0;
+
+  items.forEach((it) => {
+    const q = getItemMonthlyPhotoQuota(it, building);
+    totalTargetPhotos += q.monthlyPhotos;
+  });
+
+  const isK5 = isKelas5Building(building);
+  const isK2 = isKelas2Building(building);
+  const isK3 = isKelas3Building(building);
+
+  let ruleExplanation = '';
+  let perItemRule = '';
+
+  if (frequency === 'harian') {
+    if (isK2) {
+      perItemRule = '5 foto/hari (1 foto/pekerjaan)';
+      ruleExplanation = '5 kegiatan harian • Kirim 5 foto setiap hari (1 per pekerjaan) • Total target 100 foto/bulan (20 foto/pekerjaan)';
+    } else if (isK3) {
+      perItemRule = '4 foto/hari (1 foto/pekerjaan)';
+      ruleExplanation = '4 kegiatan harian • Kirim 4 foto setiap hari (1 per pekerjaan) • Total target 80 foto/bulan (20 foto/pekerjaan)';
+    } else {
+      perItemRule = '1 foto/hari per pekerjaan';
+      ruleExplanation = `${totalItems} kegiatan harian • Wajib kirim 1 foto setiap hari per pekerjaan • Target ${totalTargetPhotos} foto/bulan (20 foto/pekerjaan)`;
+    }
+  } else if (frequency === '1x_seminggu' || frequency === '2x_seminggu') {
+    if (isK5) {
+      perItemRule = '1 foto/minggu per pekerjaan';
+      ruleExplanation = '3 kegiatan 1x seminggu • 1 foto setiap minggu • Target 4 foto/bulan per pekerjaan (Total 12 foto/bulan)';
+    } else if (isK2) {
+      perItemRule = '2 foto/minggu (2x seminggu)';
+      ruleExplanation = '1 kegiatan 2x seminggu (Sampah TPS) • 2 foto setiap minggu • Total target 8 foto/bulan';
+    } else if (isK3) {
+      perItemRule = '2 foto/minggu per pekerjaan (2x seminggu)';
+      ruleExplanation = '2 kegiatan 2x seminggu • 2 foto setiap minggu • Target 8 foto/bulan per pekerjaan (Total 16 foto/bulan)';
+    } else {
+      perItemRule = '2 foto/minggu per pekerjaan';
+      ruleExplanation = `${totalItems} kegiatan mingguan • Target ${totalTargetPhotos} foto/bulan`;
+    }
+  } else {
+    // Bulanan
+    if (isK5) {
+      ruleExplanation = '3 kegiatan bulanan (Dinding 1x/bln, Plafon triwulan, Saluran air 1x/bln) • Total target 3 foto/bulan';
+    } else if (isK2) {
+      ruleExplanation = '9 kegiatan bulanan (1x, 2x, 4x sebulan & triwulan) • Total target 19 foto/bulan';
+    } else if (isK3) {
+      ruleExplanation = '9 kegiatan bulanan (1x, 2x sebulan & triwulan) • Total target 10 foto/bulan';
+    } else {
+      ruleExplanation = `${totalItems} kegiatan bulanan • Total target ${totalTargetPhotos} foto/bulan`;
+    }
+    perItemRule = 'Sesuai jadwal bulanan (1x, 2x, 4x, triwulan)';
+  }
+
+  return {
+    totalTargetPhotos,
+    totalItems,
+    ruleExplanation,
+    perItemRule,
+  };
+}
+
 export const DEFAULT_HK_ITEMS: HKItemDefinition[] = [
   // 1. Kegiatan Harian (sesuai matriks tabel: Sampah 1-2x sehari, Meubelair 1x sehari, Toiletries 3x sehari, Kebersihan Toilet 3-4x sehari, Lantai 5x seminggu)
   { id: 'h-sampah', name: 'Sampah Ruangan & Koridor', frequency: 'harian', description: 'Pengosongan tempat sampah ruangan dan penggantian plastik sampah baru' },
@@ -191,15 +692,15 @@ export const INITIAL_SUBMISSIONS: HKSubmission[] = [
     buildingName: 'KANTOR WITEL SURABAYA SLTN LEA',
     frequency: 'harian',
     frequencyLabel: 'Kegiatan Harian',
-    itemId: 'h-sampah',
-    itemName: 'Sampah Ruangan & Koridor',
+    itemId: 'k2-h-sampah-ruangan',
+    itemName: 'Sampah ruangan',
     conditionGood: true,
     photoUrl: 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?w=600&auto=format&fit=crop&q=80',
     photoFileName: 'sampah_ruangan_lea.jpg',
     notes: 'Tempat sampah sudah dikosongkan dan plastik sampah diganti baru.',
     officerName: 'Rudik Setiyawan',
-    timestamp: new Date().toISOString(),
-    dateOnly: new Date().toISOString().split('T')[0],
+    timestamp: '2026-08-20T08:30:00.000Z',
+    dateOnly: '2026-08-20',
   },
   {
     id: 'sub-2',
@@ -207,15 +708,15 @@ export const INITIAL_SUBMISSIONS: HKSubmission[] = [
     buildingName: 'KANTOR WITEL SURABAYA SLTN LEA',
     frequency: 'harian',
     frequencyLabel: 'Kegiatan Harian',
-    itemId: 'h-meubelair',
-    itemName: 'Meubelair (Kursi, Meja, Lemari, TV, Telp, Kulkas)',
+    itemId: 'k2-h-meubelair',
+    itemName: 'Pembersihan meubelair',
     conditionGood: true,
     photoUrl: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&auto=format&fit=crop&q=80',
     photoFileName: 'meubelair_clean.jpg',
     notes: 'Meja dan kursi kerja sudah dilap dan disemprot disinfektan.',
     officerName: 'Rudik Setiyawan',
-    timestamp: new Date().toISOString(),
-    dateOnly: new Date().toISOString().split('T')[0],
+    timestamp: '2026-08-20T09:15:00.000Z',
+    dateOnly: '2026-08-20',
   },
   {
     id: 'sub-3',
@@ -223,15 +724,15 @@ export const INITIAL_SUBMISSIONS: HKSubmission[] = [
     buildingName: 'KANTOR WITEL SURABAYA SLTN LEA',
     frequency: '1x_seminggu',
     frequencyLabel: 'Mingguan (1x Seminggu)',
-    itemId: 'w1-kaca-jendela',
-    itemName: 'Kaca Jendela Luar / Dalam',
+    itemId: 'k2-w-sampah-tps',
+    itemName: 'Sampah TPS',
     conditionGood: true,
     photoUrl: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&auto=format&fit=crop&q=80',
-    photoFileName: 'kaca_jendela_lt1.jpg',
-    notes: 'Kaca jendela lt 1 & 2 telah dibersihkan menggunakan squeegee.',
+    photoFileName: 'sampah_tps_lea.jpg',
+    notes: 'Pengangkutan sampah ke TPS luar gedung selesai dikerjakan.',
     officerName: 'Rudik Setiyawan',
-    timestamp: new Date().toISOString(),
-    dateOnly: new Date().toISOString().split('T')[0],
+    timestamp: '2026-08-20T10:00:00.000Z',
+    dateOnly: '2026-08-20',
   },
   {
     id: 'sub-4',
@@ -239,15 +740,15 @@ export const INITIAL_SUBMISSIONS: HKSubmission[] = [
     buildingName: 'MSC SURABAYA KALIBRASI INJOKO',
     frequency: 'harian',
     frequencyLabel: 'Kegiatan Harian',
-    itemId: 'h-lantai',
-    itemName: 'Pembersihan & Perawatan Lantai (Sapu & Pel)',
+    itemId: 'k3-h-sampah-ruangan',
+    itemName: 'Sampah ruangan',
     conditionGood: true,
     photoUrl: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600&auto=format&fit=crop&q=80',
-    photoFileName: 'lantai_gudang_kalibrasi.jpg',
-    notes: 'Lantai utama sudah dipel dengan desinfektan aroma pinus.',
+    photoFileName: 'sampah_kalibrasi.jpg',
+    notes: 'Sampah ruangan kantor MSC sudah dibuang ke tempat pembuangan.',
     officerName: 'Rudik Setiyawan',
-    timestamp: new Date().toISOString(),
-    dateOnly: new Date().toISOString().split('T')[0],
+    timestamp: '2026-08-20T08:45:00.000Z',
+    dateOnly: '2026-08-20',
   }
 ];
 

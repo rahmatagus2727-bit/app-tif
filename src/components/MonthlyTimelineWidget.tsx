@@ -13,11 +13,12 @@ interface MonthlyTimelineWidgetProps {
   selectedBuilding?: Building;
   submissions: HKSubmission[];
   buildings: Building[];
+  selectedDateStr?: string;
   onSelectBuilding?: (building: Building) => void;
-  onSelectDate?: (dateStr: string) => void;
+  onSelectDate?: (dateStr: string, dayNum: number) => void;
 }
 
-interface DayInfo {
+export interface DayInfo {
   dayNum: number;
   dayName: string; // SAB, MIN, SEN, SEL, RAB, KAM, JUM
   fullDayName: string; // Sabtu, Minggu, etc.
@@ -25,20 +26,39 @@ interface DayInfo {
   isWeekend: boolean;
   isHoliday: boolean;
   holidayName?: string;
-  pct: number; // 0, 75, 100
-  photoCount: number;
-  totalRequired: number;
 }
 
 export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
   selectedBuilding,
   buildings,
+  selectedDateStr,
   onSelectDate,
 }) => {
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [selectedMonth, setSelectedMonth] = useState<number>(7); // 7 = August (0-indexed)
-  const [activeDateNum, setActiveDateNum] = useState<number>(22); // Default 22 as in screenshot
+  const [activeDateNum, setActiveDateNum] = useState<number>(() => {
+    if (selectedDateStr) {
+      const parts = selectedDateStr.split('-');
+      if (parts.length === 3) {
+        return parseInt(parts[2], 10) || 20;
+      }
+    }
+    return 20; // Default to 20
+  });
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Sync if selectedDateStr changes externally
+  useEffect(() => {
+    if (selectedDateStr) {
+      const parts = selectedDateStr.split('-');
+      if (parts.length === 3) {
+        const dNum = parseInt(parts[2], 10);
+        if (dNum && dNum !== activeDateNum) {
+          setActiveDateNum(dNum);
+        }
+      }
+    }
+  }, [selectedDateStr]);
 
   const monthNames = [
     'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -69,32 +89,10 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
 
     if (selectedMonth === 7 && i === 17) {
       isHoliday = true;
-      holidayName = 'Hari Kem';
+      holidayName = 'Hari Kemerdekaan RI';
     } else if (selectedMonth === 7 && i === 25) {
       isHoliday = true;
-      holidayName = 'Tanggal';
-    }
-
-    // Determine completion percentage / photo count
-    let pct = 0;
-    let photoCount = 0;
-    const totalRequired = 4;
-
-    if (isHoliday) {
-      pct = 0;
-      photoCount = 0;
-    } else if (i === 18 || i === 19) {
-      pct = 100;
-      photoCount = 4;
-    } else if (i === 20) {
-      pct = 75;
-      photoCount = 3;
-    } else if (i < 22) {
-      pct = (i % 2 === 0) ? 100 : 0;
-      photoCount = (i % 2 === 0) ? 4 : 0;
-    } else {
-      pct = 0;
-      photoCount = 0;
+      holidayName = 'Cuti Bersama';
     }
 
     const padDay = String(i).padStart(2, '0');
@@ -109,13 +107,20 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
       isWeekend,
       isHoliday,
       holidayName,
-      pct,
-      photoCount,
-      totalRequired,
     });
   }
 
   const activeDay = daysList.find((d) => d.dayNum === activeDateNum) || daysList[activeDateNum - 1] || daysList[0];
+
+  // Notify parent on activeDateNum change
+  const triggerDateSelect = (dayNum: number, targetMonth = selectedMonth, targetYear = selectedYear) => {
+    setActiveDateNum(dayNum);
+    if (onSelectDate) {
+      const padDay = String(dayNum).padStart(2, '0');
+      const padMonth = String(targetMonth + 1).padStart(2, '0');
+      onSelectDate(`${targetYear}-${padMonth}-${padDay}`, dayNum);
+    }
+  };
 
   // Auto scroll to active date card
   useEffect(() => {
@@ -130,27 +135,31 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
   }, [activeDateNum]);
 
   const handlePrevDay = () => {
-    setActiveDateNum((prev) => Math.max(1, prev - 1));
+    const nextNum = Math.max(1, activeDateNum - 1);
+    triggerDateSelect(nextNum);
   };
 
   const handleNextDay = () => {
-    setActiveDateNum((prev) => Math.min(daysInMonth, prev + 1));
+    const nextNum = Math.min(daysInMonth, activeDateNum + 1);
+    triggerDateSelect(nextNum);
   };
 
   const handleFirstDay = () => {
-    setActiveDateNum(1);
+    triggerDateSelect(1);
   };
 
   const handleLastDay = () => {
-    setActiveDateNum(daysInMonth);
+    triggerDateSelect(daysInMonth);
   };
 
   const handlePrevMonth = () => {
     if (selectedMonth === 0) {
       setSelectedMonth(11);
       setSelectedYear((prev) => prev - 1);
+      triggerDateSelect(1, 11, selectedYear - 1);
     } else {
       setSelectedMonth((prev) => prev - 1);
+      triggerDateSelect(1, selectedMonth - 1, selectedYear);
     }
   };
 
@@ -158,8 +167,10 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
     if (selectedMonth === 11) {
       setSelectedMonth(0);
       setSelectedYear((prev) => prev + 1);
+      triggerDateSelect(1, 0, selectedYear + 1);
     } else {
       setSelectedMonth((prev) => prev + 1);
+      triggerDateSelect(1, selectedMonth + 1, selectedYear);
     }
   };
 
@@ -204,13 +215,13 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
               <div className="flex items-center gap-2 text-xs font-bold">
                 <button
                   onClick={handlePrevMonth}
-                  className="text-slate-500 hover:text-rose-600 transition"
+                  className="text-slate-500 hover:text-rose-600 transition cursor-pointer"
                 >
                   ← Bulan Lalu
                 </button>
                 <button
                   onClick={handleNextMonth}
-                  className="text-rose-600 hover:text-rose-700 transition"
+                  className="text-rose-600 hover:text-rose-700 transition cursor-pointer"
                 >
                   Bulan Selanjutnya →
                 </button>
@@ -224,7 +235,7 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
           {/* Jump to day 1 */}
           <button
             onClick={handleFirstDay}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-rose-600 text-xs font-bold transition active:scale-95 shadow-xs"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-rose-600 text-xs font-bold transition active:scale-95 shadow-xs cursor-pointer"
             title="Ke Tanggal 01"
             id="btn-timeline-tgl01"
           >
@@ -235,7 +246,7 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
           {/* Prev day */}
           <button
             onClick={handlePrevDay}
-            className="p-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 transition active:scale-95"
+            className="p-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 transition active:scale-95 cursor-pointer"
             title="Hari Sebelumnya"
             id="btn-timeline-prev"
           >
@@ -253,7 +264,7 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
           {/* Next day */}
           <button
             onClick={handleNextDay}
-            className="p-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 transition active:scale-95"
+            className="p-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 transition active:scale-95 cursor-pointer"
             title="Hari Berikutnya"
             id="btn-timeline-next"
           >
@@ -263,7 +274,7 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
           {/* Jump to last day */}
           <button
             onClick={handleLastDay}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-rose-600 text-xs font-bold transition active:scale-95 shadow-xs"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-rose-600 text-xs font-bold transition active:scale-95 shadow-xs cursor-pointer"
             title={`Ke Tanggal ${daysInMonth}`}
             id="btn-timeline-tgl31"
           >
@@ -278,7 +289,7 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
         <div className="flex items-center gap-1.5 text-slate-700 font-medium">
           <Sparkles className="w-4 h-4 text-rose-600 shrink-0" />
           <span>
-            Klik tanggal di bawah untuk memeriksa foto/persentase (Hari kerja & Tanggal Merah otomatis disesuaikan):
+            Pilih tanggal di bawah untuk melihat persentase kegiatan masing-masing gedung di tanggal tersebut:
           </span>
         </div>
         <span className="hidden sm:inline-block text-slate-400 font-mono text-[11px]">
@@ -301,10 +312,7 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
             <div
               key={day.dayNum}
               id={`timeline-day-card-${day.dayNum}`}
-              onClick={() => {
-                setActiveDateNum(day.dayNum);
-                if (onSelectDate) onSelectDate(day.dateStr);
-              }}
+              onClick={() => triggerDateSelect(day.dayNum)}
               className={`flex-shrink-0 w-[68px] sm:w-[72px] rounded-2xl p-2.5 flex flex-col items-center justify-between gap-1.5 cursor-pointer transition-all duration-200 select-none ${
                 isActive
                   ? 'bg-rose-600 border-2 border-rose-400 text-white shadow-md shadow-rose-600/30 scale-105 z-10'
@@ -333,7 +341,7 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
                 {day.dayNum}
               </div>
 
-              {/* Status Badge */}
+              {/* Status Badge (Clean: LIBUR / TERPILIH / KERJA) */}
               <div className="w-full text-center">
                 {day.isHoliday ? (
                   <span
@@ -345,35 +353,13 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
                   >
                     LIBUR
                   </span>
-                ) : day.pct === 100 ? (
-                  <span
-                    className={`block w-full py-0.5 rounded-lg text-[9px] font-extrabold ${
-                      isActive
-                        ? 'bg-rose-700 text-emerald-200 border border-rose-500'
-                        : 'bg-emerald-100 border border-emerald-200 text-emerald-800'
-                    }`}
-                  >
-                    100%
-                  </span>
-                ) : day.pct > 0 ? (
-                  <span
-                    className={`block w-full py-0.5 rounded-lg text-[9px] font-extrabold ${
-                      isActive
-                        ? 'bg-rose-700 text-sky-200 border border-rose-500'
-                        : 'bg-sky-100 border border-sky-200 text-sky-800'
-                    }`}
-                  >
-                    {day.pct}%
+                ) : isActive ? (
+                  <span className="block w-full py-0.5 rounded-lg text-[9px] font-extrabold bg-rose-700 text-white border border-rose-500">
+                    TERPILIH
                   </span>
                 ) : (
-                  <span
-                    className={`block w-full py-0.5 rounded-lg text-[9px] font-extrabold ${
-                      isActive
-                        ? 'bg-rose-700 text-slate-200 border border-rose-500'
-                        : 'bg-slate-200/80 border border-slate-300 text-slate-600'
-                    }`}
-                  >
-                    0%
+                  <span className="block w-full py-0.5 rounded-lg text-[9px] font-extrabold bg-slate-200/80 border border-slate-300 text-slate-700">
+                    KERJA
                   </span>
                 )}
               </div>
@@ -390,7 +376,7 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
               >
                 {day.isHoliday
                   ? day.holidayName || 'Libur'
-                  : `${day.photoCount}/${day.totalRequired} Foto`}
+                  : 'Hari Kerja'}
               </div>
             </div>
           );
@@ -403,7 +389,7 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-slate-500 flex items-center gap-1.5 font-medium">
             <Calendar className="w-3.5 h-3.5 text-rose-600" />
-            <span>Tanggal Aktif:</span>
+            <span>Tanggal Terpilih:</span>
           </span>
 
           <span className="px-3 py-1 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-mono font-bold text-xs">
@@ -413,21 +399,14 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
           <span className="text-slate-300">•</span>
 
           <span className="text-slate-700 font-medium">
-            Status: {activeDay.isHoliday ? (
+            Status:{' '}
+            {activeDay.isHoliday ? (
               <span className="text-rose-600 font-bold">
                 ⛱️ Libur ({activeDay.fullDayName}) - Tidak Ada Jadwal Rutin
               </span>
-            ) : activeDay.pct === 100 ? (
-              <span className="text-emerald-700 font-bold">
-                ✅ Hari Kerja - 100% Lengkap (4/4 Foto Tersimpan)
-              </span>
-            ) : activeDay.pct > 0 ? (
-              <span className="text-amber-700 font-bold">
-                ⏳ Hari Kerja - Parsial ({activeDay.photoCount}/4 Foto)
-              </span>
             ) : (
-              <span className="text-slate-600 font-bold">
-                📌 Hari Kerja - Belum Ada Foto (0/4)
+              <span className="text-emerald-700 font-bold">
+                🏢 Hari Kerja Operasional HK (Data Gedung Diperbarui Real-Time)
               </span>
             )}
           </span>
@@ -436,17 +415,17 @@ export const MonthlyTimelineWidget: React.FC<MonthlyTimelineWidgetProps> = ({
         {/* Legend Indicator */}
         <div className="flex items-center gap-3 text-[11px] text-slate-600 font-medium flex-wrap">
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span className="text-slate-700">100% (Lengkap 4/4)</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-600 ring-2 ring-rose-300" />
+            <span className="text-slate-700 font-bold">Tanggal Terpilih</span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
-            <span className="text-slate-700">Parsial (1-3 Foto)</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
+            <span className="text-slate-700">Hari Kerja</span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-rose-500" />
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
             <span className="text-slate-700">Libur / Tanggal Merah</span>
           </div>
         </div>

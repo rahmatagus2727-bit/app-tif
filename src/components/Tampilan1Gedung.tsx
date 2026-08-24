@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Building, HKSubmission, HKItemDefinition } from '../types';
+import { getItemsForBuilding } from '../data/defaultData';
+import { getBuildingStatsForDate } from '../utils/dateProgressHelper';
 import {
   Building2,
   ChevronRight,
@@ -11,6 +13,7 @@ import {
   Layers,
   Search,
   Filter,
+  Calendar,
 } from 'lucide-react';
 
 interface Tampilan1GedungProps {
@@ -22,6 +25,7 @@ interface Tampilan1GedungProps {
   items: HKItemDefinition[];
   onViewPhoto: (submission: HKSubmission) => void;
   onNavigateToForm: (building: Building, item: HKItemDefinition) => void;
+  selectedDateStr?: string;
 }
 
 export const Tampilan1Gedung: React.FC<Tampilan1GedungProps> = ({
@@ -31,6 +35,7 @@ export const Tampilan1Gedung: React.FC<Tampilan1GedungProps> = ({
   onDeleteBuilding,
   submissions,
   items,
+  selectedDateStr = '2026-08-20',
 }) => {
   const [isAddingBuilding, setIsAddingBuilding] = useState(false);
   const [newBuildingName, setNewBuildingName] = useState('');
@@ -38,6 +43,8 @@ export const Tampilan1Gedung: React.FC<Tampilan1GedungProps> = ({
   const [newBuildingClass, setNewBuildingClass] = useState('Kelas 3');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClass, setSelectedClass] = useState('all');
+
+  const selectedDayNum = parseInt(selectedDateStr.split('-')[2], 10) || 20;
 
   const handleCreateBuilding = (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,18 +81,25 @@ export const Tampilan1Gedung: React.FC<Tampilan1GedungProps> = ({
               Pilih Lokasi Gedung HK
             </h1>
             <p className="text-xs sm:text-sm text-rose-100 mt-1 max-w-xl">
-              Daftar 15 Gedung Witel Surabaya Selatan (Kelas 2, Kelas 3, dan Kelas 5). Pilih gedung di bawah untuk masuk ke Tampilan 2.
+              Daftar 15 Gedung Witel Surabaya Selatan. Progres dihitung berdasarkan <span className="font-bold underline text-white">Tanggal {selectedDayNum} Agustus 2026</span> dengan Persentase Harian &amp; Gabungan.
             </p>
           </div>
 
-          <button
-            onClick={() => setIsAddingBuilding(!isAddingBuilding)}
-            className="inline-flex items-center gap-1.5 bg-white hover:bg-rose-50 text-rose-700 text-xs font-extrabold px-4 py-2.5 rounded-xl shadow-md transition"
-            id="btn-tambah-gedung"
-          >
-            <Plus className="w-4 h-4 text-rose-600" />
-            <span>Tambah Gedung Baru</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1.5 rounded-xl bg-white/20 text-white text-xs font-mono font-bold flex items-center gap-1.5 backdrop-blur-sm border border-white/20">
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Tgl {selectedDayNum} Agustus 2026</span>
+            </span>
+
+            <button
+              onClick={() => setIsAddingBuilding(!isAddingBuilding)}
+              className="inline-flex items-center gap-1.5 bg-white hover:bg-rose-50 text-rose-700 text-xs font-extrabold px-4 py-2.5 rounded-xl shadow-md transition cursor-pointer"
+              id="btn-tambah-gedung"
+            >
+              <Plus className="w-4 h-4 text-rose-600" />
+              <span>Tambah Gedung Baru</span>
+            </button>
+          </div>
         </div>
 
         {/* Modal Form Tambah Gedung */}
@@ -152,7 +166,7 @@ export const Tampilan1Gedung: React.FC<Tampilan1GedungProps> = ({
             <button
               key={cls}
               onClick={() => setSelectedClass(cls)}
-              className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+              className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
                 selectedClass === cls
                   ? 'bg-rose-600 text-white shadow-xs'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -178,11 +192,19 @@ export const Tampilan1Gedung: React.FC<Tampilan1GedungProps> = ({
 
         {/* Building Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="building-cards-container">
-          {filteredBuildings.map((b, index) => {
-            const bSubs = submissions.filter((s) => s.buildingId === b.id);
-            const bCompleted = items.filter((item) => bSubs.some((s) => s.itemId === item.id && s.photoUrl)).length;
-            const bPercentage = Math.round((bCompleted / items.length) * 100);
-            const isFullyCompleted = bPercentage === 100;
+          {filteredBuildings.map((b) => {
+            const stats = getBuildingStatsForDate(b, items, submissions, selectedDateStr);
+            const {
+              harianPercentage,
+              compositePercentage,
+              categoryStats,
+              hasHarian,
+              isHoliday,
+              totalCompletedCount,
+              totalItems,
+            } = stats;
+
+            const isFullyCompleted = compositePercentage === 100 && totalItems > 0;
 
             return (
               <div
@@ -211,9 +233,11 @@ export const Tampilan1Gedung: React.FC<Tampilan1GedungProps> = ({
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                         isFullyCompleted
                           ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : isHoliday
+                          ? 'bg-rose-100 text-rose-800 border border-rose-200'
                           : 'bg-amber-100 text-amber-800 border border-amber-200'
                       }`}>
-                        {bPercentage}% Selesai
+                        {isHoliday ? 'Libur' : `${compositePercentage}% Selesai`}
                       </span>
 
                       {/* Optional Delete for Custom Buildings */}
@@ -247,18 +271,37 @@ export const Tampilan1Gedung: React.FC<Tampilan1GedungProps> = ({
                     </p>
                   )}
 
-                  {/* Mini Progress */}
+                  {/* Category percentage mini pills */}
+                  {!isHoliday && (
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                      {hasHarian && (
+                        <span className="px-2 py-0.5 rounded-md bg-rose-50 text-[10px] font-bold text-rose-700 border border-rose-100">
+                          H: {categoryStats.harian.percentage}%
+                        </span>
+                      )}
+                      <span className="px-2 py-0.5 rounded-md bg-blue-50 text-[10px] font-bold text-blue-700 border border-blue-100">
+                        M: {categoryStats['1x_seminggu'].percentage}%
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-[10px] font-bold text-emerald-700 border border-emerald-100">
+                        B: {categoryStats['1x_sebulan'].percentage}%
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Mini Progress Bars */}
                   <div className="mt-3.5 space-y-1.5">
                     <div className="flex justify-between text-xs">
-                      <span className="text-slate-400">Kelengkapan Foto:</span>
-                      <span className="font-bold text-slate-800 font-mono">{bCompleted} / {items.length} Item</span>
+                      <span className="text-slate-500 font-medium">Harian (Tgl {selectedDayNum}):</span>
+                      <span className="font-bold text-rose-600 font-mono">
+                        {isHoliday ? 'LIBUR' : `${harianPercentage}%`}
+                      </span>
                     </div>
                     <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${
                           isFullyCompleted ? 'bg-emerald-500' : 'bg-gradient-to-r from-amber-500 to-rose-600'
                         }`}
-                        style={{ width: `${bPercentage}%` }}
+                        style={{ width: `${compositePercentage}%` }}
                       />
                     </div>
                   </div>
@@ -270,12 +313,12 @@ export const Tampilan1Gedung: React.FC<Tampilan1GedungProps> = ({
                     {!isFullyCompleted ? (
                       <span className="text-amber-600 font-semibold flex items-center gap-1">
                         <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-                        Ada foto kurang
+                        <span>Gabungan: <strong>{compositePercentage}%</strong></span>
                       </span>
                     ) : (
                       <span className="text-emerald-600 font-semibold flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                        Foto Lengkap
+                        <span>Foto Lengkap (100%)</span>
                       </span>
                     )}
                   </div>

@@ -27,10 +27,8 @@ export const PhotoModal: React.FC<PhotoModalProps> = ({ submission, onClose }) =
             <div className="text-[11px] font-bold text-rose-600 uppercase tracking-wider">{submission.buildingName}</div>
             <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
               <span>{submission.itemName}</span>
-              <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold ${
-                submission.conditionGood ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-              }`}>
-                {submission.conditionGood ? 'YA (Kondisi Bersih)' : 'TIDAK (Kotor/Perbaikan)'}
+              <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                Selesai (Foto Terlampir)
               </span>
             </h3>
           </div>

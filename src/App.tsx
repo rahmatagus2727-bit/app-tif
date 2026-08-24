@@ -119,6 +119,7 @@ export default function App() {
   const [selectedBuilding, setSelectedBuilding] = useState<Building>(buildings[0] || DEFAULT_BUILDINGS[0]);
   const [selectedFrequency, setSelectedFrequency] = useState<FrequencyType>('harian');
   const [selectedItem, setSelectedItem] = useState<HKItemDefinition>(DEFAULT_HK_ITEMS[0]);
+  const [selectedDateStr, setSelectedDateStr] = useState<string>('2026-08-20');
 
   // Modal State
   const [viewingPhoto, setViewingPhoto] = useState<HKSubmission | null>(null);
@@ -198,17 +199,23 @@ export default function App() {
   // Submission handler from Step 4
   const handleSubmitForm = (newSubData: Omit<HKSubmission, 'id' | 'timestamp' | 'dateOnly'>) => {
     const now = new Date();
+    const effectiveDate = selectedDateStr || now.toISOString().split('T')[0];
     const newSubmission: HKSubmission = {
       ...newSubData,
       id: `sub-${Date.now()}`,
       timestamp: now.toISOString(),
-      dateOnly: now.toISOString().split('T')[0],
+      dateOnly: effectiveDate,
     };
 
-    // Replace if exists for same building & item, else add
+    // Replace if exists for same building & item & date, else add
     setSubmissions((prev) => {
       const filtered = prev.filter(
-        (s) => !(s.buildingId === newSubData.buildingId && s.itemId === newSubData.itemId)
+        (s) =>
+          !(
+            s.buildingId === newSubData.buildingId &&
+            s.itemId === newSubData.itemId &&
+            (s.dateOnly === effectiveDate || !s.dateOnly)
+          )
       );
       return [newSubmission, ...filtered];
     });
@@ -220,6 +227,31 @@ export default function App() {
       message: `Foto bukti ${newSubData.itemName} di ${newSubData.buildingName} telah tersinkron ke Excel.`,
       time: 'Baru saja',
       type: 'order',
+      read: false,
+    };
+    setNotifications((prev) => [newNotif, ...prev]);
+  };
+
+  // Delete Task Submission Handler (deleting the completed submission/photo, not the work item)
+  const handleDeleteSubmission = (buildingId: string, itemId: string) => {
+    const effectiveDate = selectedDateStr || new Date().toISOString().split('T')[0];
+    setSubmissions((prev) =>
+      prev.filter(
+        (s) =>
+          !(
+            s.buildingId === buildingId &&
+            s.itemId === itemId &&
+            (s.dateOnly === effectiveDate || !s.dateOnly)
+          )
+      )
+    );
+
+    const newNotif: AppNotification = {
+      id: `notif-${Date.now()}`,
+      title: 'Data Tugas Dihapus',
+      message: `Data pengerjaan tugas telah dihapus dari checklist.`,
+      time: 'Baru saja',
+      type: 'checklist',
       read: false,
     };
     setNotifications((prev) => [newNotif, ...prev]);
@@ -477,6 +509,8 @@ export default function App() {
             submissions={submissions}
             items={items}
             onLogout={handleLogout}
+            selectedDateStr={selectedDateStr}
+            onSelectDate={(dateStr) => setSelectedDateStr(dateStr)}
           />
         )}
 
@@ -493,6 +527,7 @@ export default function App() {
                 items={items}
                 onViewPhoto={(sub) => setViewingPhoto(sub)}
                 onNavigateToForm={handleDirectFormNavigation}
+                selectedDateStr={selectedDateStr}
               />
             )}
 
@@ -503,6 +538,7 @@ export default function App() {
                 onBackToStep1={() => setCurrentStep(1)}
                 submissions={submissions}
                 items={items}
+                selectedDateStr={selectedDateStr}
               />
             )}
 
@@ -516,6 +552,7 @@ export default function App() {
                 onBackToStep2={() => setCurrentStep(2)}
                 onViewPhoto={(sub) => setViewingPhoto(sub)}
                 onAddItem={handleAddItem}
+                selectedDateStr={selectedDateStr}
               />
             )}
 
@@ -526,6 +563,7 @@ export default function App() {
                 item={selectedItem}
                 existingSubmission={currentItemSubmission}
                 onSubmit={handleSubmitForm}
+                onDeleteSubmission={handleDeleteSubmission}
                 onBackToStep3={() => setCurrentStep(3)}
                 onBackToStep1Excel={() => setCurrentStep(1)}
               />
