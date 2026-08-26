@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Building,
   FrequencyType,
@@ -8,7 +8,8 @@ import {
   UserProfile,
   MainTab,
   HKOrder,
-  AppNotification
+  AppNotification,
+  RealtimeEvent
 } from './types';
 import {
   DEFAULT_BUILDINGS,
@@ -30,6 +31,8 @@ import { Tampilan3Items } from './components/Tampilan3Items';
 import { Tampilan4Form } from './components/Tampilan4Form';
 import { PhotoModal } from './components/PhotoModal';
 import { exportBuildingToChecklistExcel } from './utils/excelHelper';
+import { api } from './services/api';
+import { realtimeManager } from './services/realtime';
 import {
   Layers,
   ChevronRight,
@@ -45,17 +48,21 @@ import {
   Bell,
   User,
   ArrowLeft,
-  LogOut
+  LogOut,
+  Radio,
+  Database
 } from 'lucide-react';
 
 export default function App() {
   // Authentication State
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    const saved = localStorage.getItem('tif_hk_logged_in');
-    return saved !== null ? saved === 'true' : true;
+    const token = localStorage.getItem('tif_hk_jwt_token');
+    return !!token;
   });
 
   const [showGlobalLogoutConfirm, setShowGlobalLogoutConfirm] = useState(false);
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState<boolean>(false);
+  const [realtimeToast, setRealtimeToast] = useState<string | null>(null);
 
   const [user, setUser] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('tif_hk_user');
@@ -71,7 +78,7 @@ export default function App() {
   // Checklist 4-Step Workflow State (1 | 2 | 3 | 4)
   const [currentStep, setCurrentStep] = useState<ViewStep>(1);
 
-  // Core Data State (persisted to LocalStorage)
+  // Core Data State (persisted to LocalStorage and loaded from Backend Database)
   const [buildings, setBuildings] = useState<Building[]>(() => {
     const saved = localStorage.getItem('tif_hk_buildings_v2');
     if (saved) {
@@ -125,11 +132,7 @@ export default function App() {
   const [viewingPhoto, setViewingPhoto] = useState<HKSubmission | null>(null);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
-  // Sync to LocalStorage
-  useEffect(() => {
-    localStorage.setItem('tif_hk_logged_in', String(isLoggedIn));
-  }, [isLoggedIn]);
-
+  // Sync to LocalStorage as cache
   useEffect(() => {
     localStorage.setItem('tif_hk_user', JSON.stringify(user));
   }, [user]);
@@ -154,14 +157,138 @@ export default function App() {
     localStorage.setItem('tif_hk_notifications', JSON.stringify(notifications));
   }, [notifications]);
 
+  // Fetch initial data from Database Backend
+  const loadDatabaseData = useCallback(async () => {
+    try {
+      const [dbBuildings, dbItems, dbSubmissions, dbOrders, dbNotifs] = await Promise.all([
+        api.getBuildings().catch(() => null),
+        api.getItems().catch(() => null),
+        api.getSubmissions().catch(() => null),
+        api.getOrders().catch(() => null),
+        api.getNotifications().catch(() => null),
+      ]);
+
+      if (dbBuildings && dbBuildings.length > 0) setBuildings(dbBuildings);
+      if (dbItems && dbItems.length > 0) setItems(dbItems);
+      if (dbSubmissions) setSubmissions(dbSubmissions);
+      if (dbOrders) setOrders(dbOrders);
+      if (dbNotifs) setNotifications(dbNotifs);
+    } catch (err) {
+      console.warn('Using local cached data:', err);
+    }
+  }, []);
+
+  // Initialize Auth & Data
+  useEffect(() => {
+    const initAuthAndData = async () => {
+      const token = localStorage.getItem('tif_hk_jwt_token');
+      if (token) {
+        try {
+          const res = await api.getMe();
+          if (res?.user) {
+            setUser(res.user);
+            setIsLoggedIn(true);
+          }
+        } catch (e) {
+          console.warn('Session expired or invalid token');
+        }
+      }
+      loadDatabaseData();
+    };
+
+    initAuthAndData();
+  }, [loadDatabaseData]);
+
+  // Subscribe to Realtime SSE Events
+  useEffect(() => {
+    const unsubStatus = realtimeManager.onStatusChange((connected) => {
+      setIsRealtimeConnected(connected);
+    });
+
+    const unsubEvents = realtimeManager.subscribe((event: RealtimeEvent) => {
+      switch (event.type) {
+        case 'SUBMISSION_CREATED': {
+          const newSub = event.data as HKSubmission;
+          if (newSub) {
+            setSubmissions((prev) => {
+              const filtered = prev.filter(
+                (s) =>
+                  !(
+                    s.buildingId === newSub.buildingId &&
+                    s.itemId === newSub.itemId &&
+                    (s.dateOnly === newSub.dateOnly || (!s.dateOnly && !newSub.dateOnly))
+                  )
+              );
+              return [newSub, ...filtered];
+            });
+            setRealtimeToast(`Checklist baru: ${newSub.itemName} di ${newSub.buildingName}`);
+            setTimeout(() => setRealtimeToast(null), 4000);
+          }
+          break;
+        }
+        case 'SUBMISSION_DELETED': {
+          const payload = event.data;
+          if (payload) {
+            setSubmissions((prev) =>
+              prev.filter(
+                (s) =>
+                  !(
+                    s.buildingId === payload.buildingId &&
+                    s.itemId === payload.itemId &&
+                    (!payload.dateOnly || s.dateOnly === payload.dateOnly)
+                  )
+              )
+            );
+          }
+          break;
+        }
+        case 'NOTIFICATION_ADDED': {
+          const notif = event.data as AppNotification;
+          if (notif) {
+            setNotifications((prev) => [notif, ...prev.filter((n) => n.id !== notif.id)]);
+          }
+          break;
+        }
+        case 'ORDER_CREATED':
+        case 'ORDER_UPDATED': {
+          const order = event.data as HKOrder;
+          if (order) {
+            setOrders((prev) => [order, ...prev.filter((o) => o.id !== order.id)]);
+          }
+          break;
+        }
+        case 'USER_UPDATED': {
+          const updatedUser = event.data as UserProfile;
+          if (updatedUser && updatedUser.nik === user.nik) {
+            setUser(updatedUser);
+          }
+          break;
+        }
+        case 'DATABASE_RESET': {
+          loadDatabaseData();
+          setRealtimeToast('Database telah direset ke bawaan oleh Admin.');
+          setTimeout(() => setRealtimeToast(null), 4000);
+          break;
+        }
+      }
+    });
+
+    return () => {
+      unsubStatus();
+      unsubEvents();
+    };
+  }, [user.nik, loadDatabaseData]);
+
   // Authentication Handlers
   const handleLogin = (newUser: UserProfile) => {
     setUser(newUser);
     setIsLoggedIn(true);
     setMainTab('home');
+    loadDatabaseData();
   };
 
   const handleLogout = () => {
+    api.logout();
     setIsLoggedIn(false);
   };
 
@@ -196,8 +323,8 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Submission handler from Step 4
-  const handleSubmitForm = (newSubData: Omit<HKSubmission, 'id' | 'timestamp' | 'dateOnly'>) => {
+  // Submission handler from Step 4 (Persists to Database & Broadcasts)
+  const handleSubmitForm = async (newSubData: Omit<HKSubmission, 'id' | 'timestamp' | 'dateOnly'>) => {
     const now = new Date();
     const effectiveDate = selectedDateStr || now.toISOString().split('T')[0];
     const newSubmission: HKSubmission = {
@@ -207,7 +334,7 @@ export default function App() {
       dateOnly: effectiveDate,
     };
 
-    // Replace if exists for same building & item & date, else add
+    // Optimistic Local State Update
     setSubmissions((prev) => {
       const filtered = prev.filter(
         (s) =>
@@ -220,21 +347,30 @@ export default function App() {
       return [newSubmission, ...filtered];
     });
 
-    // Add a notification for successful submission
+    // Add local notification
     const newNotif: AppNotification = {
       id: `notif-${Date.now()}`,
       title: 'Checklist Berhasil Disimpan',
-      message: `Foto bukti ${newSubData.itemName} di ${newSubData.buildingName} telah tersinkron ke Excel.`,
+      message: `Foto bukti ${newSubData.itemName} di ${newSubData.buildingName} telah tersimpan di database & Excel.`,
       time: 'Baru saja',
       type: 'order',
       read: false,
     };
     setNotifications((prev) => [newNotif, ...prev]);
+
+    // Send to Backend DB
+    try {
+      await api.createSubmission(newSubmission);
+    } catch (err) {
+      console.warn('Saved locally, server sync error:', err);
+    }
   };
 
-  // Delete Task Submission Handler (deleting the completed submission/photo, not the work item)
-  const handleDeleteSubmission = (buildingId: string, itemId: string) => {
+  // Delete Task Submission Handler
+  const handleDeleteSubmission = async (buildingId: string, itemId: string) => {
     const effectiveDate = selectedDateStr || new Date().toISOString().split('T')[0];
+    
+    // Optimistic Update
     setSubmissions((prev) =>
       prev.filter(
         (s) =>
@@ -249,12 +385,18 @@ export default function App() {
     const newNotif: AppNotification = {
       id: `notif-${Date.now()}`,
       title: 'Data Tugas Dihapus',
-      message: `Data pengerjaan tugas telah dihapus dari checklist.`,
+      message: `Data pengerjaan tugas telah dihapus dari database.`,
       time: 'Baru saja',
       type: 'checklist',
       read: false,
     };
     setNotifications((prev) => [newNotif, ...prev]);
+
+    try {
+      await api.deleteSubmission(buildingId, itemId, effectiveDate);
+    } catch (err) {
+      console.warn('Deleted locally, server sync error:', err);
+    }
   };
 
   // Add Custom Building Handler
@@ -284,9 +426,14 @@ export default function App() {
     setItems([...items, newItem]);
   };
 
-  // Reset sample data
-  const handleResetData = () => {
-    if (confirm('Kembalikan data checklist ke contoh awal (reset)?')) {
+  // Reset sample data via Database
+  const handleResetData = async () => {
+    if (confirm('Kembalikan data checklist ke contoh awal (reset database)?')) {
+      try {
+        await api.resetDatabase();
+      } catch (err) {
+        console.warn('Resetting locally:', err);
+      }
       setBuildings(DEFAULT_BUILDINGS);
       setItems(DEFAULT_HK_ITEMS);
       setSubmissions(INITIAL_SUBMISSIONS);
@@ -299,7 +446,7 @@ export default function App() {
     }
   };
 
-  // If not logged in, show Login Screen (Exact design matching Image 18.58.45)
+  // If not logged in, show Login & Registration Screen
   if (!isLoggedIn) {
     return <LoginScreen onLogin={handleLogin} defaultUser={user} />;
   }
@@ -314,6 +461,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans selection:bg-rose-500/20 selection:text-rose-600">
+      {/* REALTIME TOAST NOTIFICATION POPUP */}
+      {realtimeToast && (
+        <div className="fixed top-18 right-4 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-2xl shadow-2xl border border-slate-700 text-xs font-semibold flex items-center gap-2 animate-in slide-in-from-top-4 duration-200">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+          <span>{realtimeToast}</span>
+        </div>
+      )}
+
       {/* 1. TOP GLOBAL NAVBAR */}
       <header className="sticky top-0 z-40 bg-gradient-to-r from-red-900 via-rose-900 to-red-950 text-white border-b border-rose-950 shadow-md">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
@@ -340,12 +495,22 @@ export default function App() {
                 >
                   My Birawa HK
                 </span>
-                <span className="text-[10px] bg-white/20 text-rose-100 border border-white/30 px-2 py-0.5 rounded-full font-mono font-bold uppercase tracking-wider">
-                  Proyek HK TIF
-                </span>
+                
+                {/* Real-time Status Badge in Top Bar */}
+                {isRealtimeConnected ? (
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-mono font-bold uppercase tracking-wider backdrop-blur-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Realtime DB</span>
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[10px] font-mono font-bold uppercase tracking-wider">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    <span>Connecting</span>
+                  </div>
+                )}
               </div>
               <p className="text-[11px] text-rose-200 font-medium hidden sm:block">
-                Telkom Property by Telkom Indonesia • Checklist Real-Time Excel
+                Telkom Property by Telkom Indonesia • Database & Real-Time Sync
               </p>
             </div>
           </div>
@@ -355,7 +520,7 @@ export default function App() {
             {/* Quick Export Excel Button */}
             <button
               onClick={() => exportBuildingToChecklistExcel(selectedBuilding, submissions, items)}
-              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition shadow-sm"
+              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition shadow-sm cursor-pointer"
               title="Download File Spreadsheet Excel (.xlsx)"
               id="global-btn-export-excel"
             >
@@ -366,7 +531,7 @@ export default function App() {
             {/* Notification Icon */}
             <button
               onClick={() => setIsNotificationOpen(true)}
-              className="relative p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition"
+              className="relative p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
               title="Notifikasi"
               id="global-btn-notif"
             >
@@ -381,7 +546,7 @@ export default function App() {
             {/* Reset Data Button */}
             <button
               onClick={handleResetData}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-rose-200 hover:text-white transition text-xs"
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-rose-200 hover:text-white transition text-xs cursor-pointer"
               title="Reset ke Data Awal"
               id="global-btn-reset"
             >
@@ -391,7 +556,7 @@ export default function App() {
             {/* Global Logout Button */}
             <button
               onClick={() => setShowGlobalLogoutConfirm(true)}
-              className="inline-flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl bg-rose-800/80 hover:bg-rose-700 text-rose-100 hover:text-white border border-rose-600/60 transition text-xs font-bold shadow-sm"
+              className="inline-flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl bg-rose-800/80 hover:bg-rose-700 text-rose-100 hover:text-white border border-rose-600/60 transition text-xs font-bold shadow-sm cursor-pointer"
               title="Keluar ke Halaman Login"
               id="global-btn-logout"
             >
@@ -408,7 +573,7 @@ export default function App() {
               {/* Back to Home Shortcut */}
               <button
                 onClick={() => setMainTab('home')}
-                className="flex items-center gap-1 text-rose-200 hover:text-white px-2 py-1 rounded hover:bg-rose-900/40 text-xs font-semibold mr-1 shrink-0"
+                className="flex items-center gap-1 text-rose-200 hover:text-white px-2 py-1 rounded hover:bg-rose-900/40 text-xs font-semibold mr-1 shrink-0 cursor-pointer"
               >
                 <Home className="w-3.5 h-3.5" />
                 <span>Home</span>
@@ -419,7 +584,7 @@ export default function App() {
               {/* Step 1 Tab */}
               <button
                 onClick={() => setCurrentStep(1)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition whitespace-nowrap cursor-pointer ${
                   currentStep === 1
                     ? 'bg-rose-600 text-white shadow-md shadow-rose-950/50'
                     : 'text-rose-200 hover:text-white hover:bg-rose-900/40'
@@ -437,7 +602,7 @@ export default function App() {
                 onClick={() => {
                   if (currentStep >= 2) setCurrentStep(2);
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition whitespace-nowrap cursor-pointer ${
                   currentStep === 2
                     ? 'bg-rose-600 text-white shadow-md shadow-rose-950/50'
                     : currentStep > 2
@@ -457,7 +622,7 @@ export default function App() {
                 onClick={() => {
                   if (currentStep >= 3) setCurrentStep(3);
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition whitespace-nowrap cursor-pointer ${
                   currentStep === 3
                     ? 'bg-rose-600 text-white shadow-md shadow-rose-950/50'
                     : currentStep > 3
@@ -477,7 +642,7 @@ export default function App() {
                 onClick={() => {
                   if (currentStep >= 4) setCurrentStep(4);
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition whitespace-nowrap cursor-pointer ${
                   currentStep === 4
                     ? 'bg-rose-600 text-white shadow-md shadow-rose-950/50'
                     : 'text-rose-300/60 opacity-60 cursor-not-allowed'
@@ -492,7 +657,7 @@ export default function App() {
         )}
       </header>
 
-      {/* 2. MAIN APPLICATION WORKSPACE (Max-width container centered) */}
+      {/* 2. MAIN APPLICATION WORKSPACE */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full pb-24">
         {/* VIEW 1: HOME TAB */}
         {mainTab === 'home' && (
@@ -571,7 +736,7 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 3: PROFILE TAB (Matching Image 18.50.13) */}
+        {/* VIEW 3: PROFILE TAB */}
         {mainTab === 'profile' && (
           <ProfileScreen
             user={user}
@@ -581,11 +746,12 @@ export default function App() {
               setMainTab('checklist');
               setCurrentStep(1);
             }}
+            onDatabaseReset={loadDatabaseData}
           />
         )}
       </main>
 
-      {/* 3. BOTTOM NAVIGATION BAR (Fixed at bottom with Home, Checklist, Profile tabs) */}
+      {/* 3. BOTTOM NAVIGATION BAR */}
       <BottomNavBar
         currentTab={mainTab}
         onChangeTab={(t) => {
@@ -609,11 +775,17 @@ export default function App() {
         isOpen={isNotificationOpen}
         onClose={() => setIsNotificationOpen(false)}
         notifications={notifications}
-        onMarkAllAsRead={() => {
+        onMarkAllAsRead={async () => {
           setNotifications(notifications.map((n) => ({ ...n, read: true })));
+          try {
+            await api.markAllNotificationsRead();
+          } catch (e) {}
         }}
-        onClearNotifications={() => {
+        onClearNotifications={async () => {
           setNotifications([]);
+          try {
+            await api.clearAllNotifications();
+          } catch (e) {}
         }}
       />
 

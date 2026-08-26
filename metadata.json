@@ -1,6 +1,6 @@
 {
   "name": "My Birawa HK - Proyek HK TIF",
-  "description": "Sistem Monitoring & Checklist Housekeeping (HK) Telkom Property My Birawa dengan Alur 4 Tampilan, Upload Foto Bukti, dan Integrasi Excel Real-Time.",
+  "description": "Sistem Monitoring & Checklist Housekeeping Telkom Property My Birawa dengan Real-Time Database Internal, Autentikasi & Keamanan Akun, Notifikasi Live, dan Export Excel.",
   "requestFramePermissions": [
     "camera"
   ],

@@ -68,4 +68,42 @@ export interface AppNotification {
   time: string;
   read: boolean;
   type: 'order' | 'checklist' | 'system' | 'approval';
+  createdAt?: string;
+}
+
+export interface UserAccount extends UserProfile {
+  id: string;
+  passwordHash?: string;
+  createdAt: string;
+  lastLoginAt?: string;
+  status: 'active' | 'suspended';
+}
+
+export interface AuditLog {
+  id: string;
+  action: string;
+  details: string;
+  performedBy: string;
+  role: string;
+  timestamp: string;
+  type: 'auth' | 'checklist' | 'order' | 'system' | 'security';
+}
+
+export type RealtimeEventType = 
+  | 'SUBMISSION_CREATED' 
+  | 'SUBMISSION_DELETED' 
+  | 'NOTIFICATION_ADDED' 
+  | 'NOTIFICATION_READ' 
+  | 'ORDER_UPDATED' 
+  | 'ORDER_CREATED' 
+  | 'USER_UPDATED' 
+  | 'DATABASE_RESET'
+  | 'DATABASE_RESTORED'
+  | 'HEARTBEAT';
+
+export interface RealtimeEvent<T = any> {
+  id: string;
+  type: RealtimeEventType;
+  data: T;
+  timestamp: string;
 }
