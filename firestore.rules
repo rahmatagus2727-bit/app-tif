@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // HK Submissions / Checklists - Allow read and write for real-time collaboration among officers & supervisors
+    match /submissions/{submissionId} {
+      allow read, write: if true;
+    }
+    
+    // Buildings & HK Items (master data customization)
+    match /buildings/{buildingId} {
+      allow read, write: if true;
+    }
+    match /hk_items/{itemId} {
+      allow read, write: if true;
+    }
+    
+    // Default fallback
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
