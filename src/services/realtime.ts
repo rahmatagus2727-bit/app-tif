@@ -7,7 +7,8 @@ type StatusListener = (connected: boolean, transport: string, latencyMs?: number
 
 const MQTT_BROKER_URLS = [
   'wss://broker.emqx.io:8084/mqtt',
-  'wss://broker.hivemq.com:8884/mqtt'
+  'wss://broker.hivemq.com:8884/mqtt',
+  'wss://test.mosquitto.org:8081'
 ];
 const MQTT_TOPIC = 'telpro/mybirawa_tif/realtime_sync_v2';
 const CLIENT_INSTANCE_ID = `client-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;

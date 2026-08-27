@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Building, FrequencyType, HKItemDefinition, HKSubmission } from '../types';
 import { FREQUENCY_CATEGORIES } from '../data/defaultData';
 import confetti from 'canvas-confetti';
+import { compressImageFile } from '../utils/imageCompressor';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -66,8 +67,8 @@ export const Tampilan4Form: React.FC<Tampilan4FormProps> = ({
 
   const isTaskAlreadyCompleted = Boolean(existingSubmission && existingSubmission.photoUrl);
 
-  // Convert File to Base64
-  const handleFileChange = (file: File) => {
+  // Convert File to Compressed Base64 for instant real-time sync
+  const handleFileChange = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       setErrorMessage('Harap unggah file gambar (JPG, PNG, JPEG, WEBP)');
       return;
@@ -76,13 +77,20 @@ export const Tampilan4Form: React.FC<Tampilan4FormProps> = ({
     setDeleteSuccess(false);
     setPhotoFileName(file.name);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        setPhotoUrl(e.target.result as string);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImageFile(file, 800, 0.65);
+      setPhotoUrl(compressed.base64);
+      setPhotoFileName(compressed.fileName);
+    } catch (err) {
+      // Fallback to standard reader
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          setPhotoUrl(e.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
