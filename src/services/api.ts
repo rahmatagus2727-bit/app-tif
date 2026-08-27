@@ -11,6 +11,31 @@ import {
 import { localDb } from './localDb';
 
 const TOKEN_KEY = 'tif_hk_jwt_token';
+const SERVER_URL_KEY = 'tif_hk_server_api_url';
+
+export function getApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem(SERVER_URL_KEY);
+    if (saved && saved.trim()) {
+      return saved.trim().replace(/\/$/, '');
+    }
+    // If running on github.io or external static domain, auto-route to Cloud Run backend
+    if (window.location.hostname.includes('github.io')) {
+      return 'https://ais-pre-yto47u7ddhwnwkjmetumma-375462668053.asia-southeast1.run.app';
+    }
+  }
+  return '';
+}
+
+export function setApiBaseUrl(url: string): void {
+  if (typeof window !== 'undefined') {
+    if (!url || !url.trim()) {
+      localStorage.removeItem(SERVER_URL_KEY);
+    } else {
+      localStorage.setItem(SERVER_URL_KEY, url.trim().replace(/\/$/, ''));
+    }
+  }
+}
 
 export const authStorage = {
   getToken(): string | null {
@@ -62,7 +87,8 @@ export const api = {
   // Authentication
   async login(username: string, password?: string): Promise<{ success: boolean; token: string; user: UserProfile; error?: string }> {
     try {
-      const res = await fetch('/api/auth/login', {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/auth/login`, {
         method: 'POST',
         headers: getHeaders(false),
         body: JSON.stringify({ username, password })
@@ -98,7 +124,8 @@ export const api = {
     phoneNumber?: string;
   }): Promise<{ success: boolean; token: string; user: UserProfile }> {
     try {
-      const res = await fetch('/api/auth/register', {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/auth/register`, {
         method: 'POST',
         headers: getHeaders(false),
         body: JSON.stringify(params)
@@ -139,7 +166,8 @@ export const api = {
       throw new Error('Tidak ada sesi aktif');
     }
     try {
-      const res = await fetch('/api/auth/me', {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/auth/me`, {
         headers: getHeaders(true)
       });
       const data = await parseJsonResponse(res);
@@ -167,7 +195,8 @@ export const api = {
 
   async updateProfile(updates: Partial<UserProfile>): Promise<{ success: boolean; user: UserProfile }> {
     try {
-      const res = await fetch('/api/auth/profile', {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/auth/profile`, {
         method: 'PUT',
         headers: getHeaders(true),
         body: JSON.stringify(updates)
@@ -188,7 +217,8 @@ export const api = {
 
   async changePassword(oldPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
     try {
-      const res = await fetch('/api/auth/change-password', {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/auth/change-password`, {
         method: 'POST',
         headers: getHeaders(true),
         body: JSON.stringify({ oldPassword, newPassword })
@@ -205,7 +235,8 @@ export const api = {
 
   async getAllUsers(): Promise<UserAccount[]> {
     try {
-      const res = await fetch('/api/auth/users', {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/auth/users`, {
         headers: getHeaders(true)
       });
       const data = await parseJsonResponse(res);
@@ -217,7 +248,8 @@ export const api = {
 
   async deleteUser(userId: string): Promise<boolean> {
     try {
-      const res = await fetch(`/api/auth/users/${userId}`, {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/auth/users/${userId}`, {
         method: 'DELETE',
         headers: getHeaders(true)
       });
@@ -232,12 +264,13 @@ export const api = {
   // Submissions (Checklist)
   async getSubmissions(params?: { buildingId?: string; dateOnly?: string; frequency?: string }): Promise<HKSubmission[]> {
     try {
+      const baseUrl = getApiBaseUrl();
       const query = new URLSearchParams();
       if (params?.buildingId) query.set('buildingId', params.buildingId);
       if (params?.dateOnly) query.set('dateOnly', params.dateOnly);
       if (params?.frequency) query.set('frequency', params.frequency);
 
-      const res = await fetch(`/api/submissions?${query.toString()}`, {
+      const res = await fetch(`${baseUrl}/api/submissions?${query.toString()}`, {
         headers: getHeaders(false)
       });
       const data = await parseJsonResponse(res);
@@ -249,7 +282,8 @@ export const api = {
 
   async createSubmission(sub: Omit<HKSubmission, 'id' | 'timestamp' | 'dateOnly'> & { id?: string; timestamp?: string; dateOnly?: string }): Promise<HKSubmission> {
     try {
-      const res = await fetch('/api/submissions', {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/submissions`, {
         method: 'POST',
         headers: getHeaders(true),
         body: JSON.stringify(sub)
@@ -272,17 +306,18 @@ export const api = {
 
   async deleteSubmission(idOrBuildingId: string, itemId?: string, dateOnly?: string): Promise<boolean> {
     try {
+      const baseUrl = getApiBaseUrl();
       if (itemId) {
         const query = new URLSearchParams({ buildingId: idOrBuildingId, itemId });
         if (dateOnly) query.set('dateOnly', dateOnly);
-        const res = await fetch(`/api/submissions/by-item?${query.toString()}`, {
+        const res = await fetch(`${baseUrl}/api/submissions/by-item?${query.toString()}`, {
           method: 'DELETE',
           headers: getHeaders(true)
         });
         return res.ok;
       }
 
-      const res = await fetch(`/api/submissions/${idOrBuildingId}`, {
+      const res = await fetch(`${baseUrl}/api/submissions/${idOrBuildingId}`, {
         method: 'DELETE',
         headers: getHeaders(true)
       });
@@ -295,7 +330,8 @@ export const api = {
   // Buildings & Items
   async getBuildings(): Promise<Building[]> {
     try {
-      const res = await fetch('/api/buildings');
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/buildings`);
       const data = await parseJsonResponse(res);
       return data.buildings || [];
     } catch (err) {
@@ -305,7 +341,8 @@ export const api = {
 
   async getItems(): Promise<HKItemDefinition[]> {
     try {
-      const res = await fetch('/api/items');
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/items`);
       const data = await parseJsonResponse(res);
       return data.items || [];
     } catch (err) {
@@ -316,7 +353,8 @@ export const api = {
   // Orders
   async getOrders(): Promise<HKOrder[]> {
     try {
-      const res = await fetch('/api/orders');
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/orders`);
       const data = await parseJsonResponse(res);
       return data.orders || [];
     } catch (err) {
@@ -326,7 +364,8 @@ export const api = {
 
   async createOrder(order: Partial<HKOrder>): Promise<HKOrder> {
     try {
-      const res = await fetch('/api/orders', {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/orders`, {
         method: 'POST',
         headers: getHeaders(true),
         body: JSON.stringify(order)
@@ -350,7 +389,8 @@ export const api = {
 
   async updateOrderStatus(id: string, updates: Partial<HKOrder>): Promise<HKOrder> {
     try {
-      const res = await fetch(`/api/orders/${id}`, {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/orders/${id}`, {
         method: 'PUT',
         headers: getHeaders(true),
         body: JSON.stringify(updates)
@@ -365,7 +405,8 @@ export const api = {
   // Notifications
   async getNotifications(): Promise<AppNotification[]> {
     try {
-      const res = await fetch('/api/notifications');
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/notifications`);
       const data = await parseJsonResponse(res);
       return data.notifications || [];
     } catch (err) {
@@ -375,7 +416,8 @@ export const api = {
 
   async markNotificationRead(id: string): Promise<boolean> {
     try {
-      const res = await fetch(`/api/notifications/${id}/read`, {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/notifications/${id}/read`, {
         method: 'PUT',
         headers: getHeaders(true)
       });
@@ -387,7 +429,8 @@ export const api = {
 
   async markAllNotificationsRead(): Promise<boolean> {
     try {
-      const res = await fetch('/api/notifications/read-all', {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/notifications/read-all`, {
         method: 'POST',
         headers: getHeaders(true)
       });
@@ -399,7 +442,8 @@ export const api = {
 
   async clearAllNotifications(): Promise<boolean> {
     try {
-      const res = await fetch('/api/notifications/clear-all', {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/notifications/clear-all`, {
         method: 'DELETE',
         headers: getHeaders(true)
       });
@@ -412,7 +456,8 @@ export const api = {
   // Audit Logs
   async getAuditLogs(): Promise<AuditLog[]> {
     try {
-      const res = await fetch('/api/audit-logs', {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/audit-logs`, {
         headers: getHeaders(true)
       });
       const data = await parseJsonResponse(res);
@@ -425,7 +470,8 @@ export const api = {
   // Database Factory Reset
   async resetDatabase(): Promise<{ success: boolean; message: string }> {
     try {
-      const res = await fetch('/api/db/reset', {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/db/reset`, {
         method: 'POST',
         headers: getHeaders(true)
       });

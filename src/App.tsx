@@ -62,6 +62,8 @@ export default function App() {
 
   const [showGlobalLogoutConfirm, setShowGlobalLogoutConfirm] = useState(false);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState<boolean>(false);
+  const [realtimeTransport, setRealtimeTransport] = useState<string>('connecting');
+  const [realtimeLatency, setRealtimeLatency] = useState<number>(0);
   const [realtimeToast, setRealtimeToast] = useState<string | null>(null);
 
   const [user, setUser] = useState<UserProfile>(() => {
@@ -208,9 +210,16 @@ export default function App() {
 
   // Subscribe to Realtime SSE Events
   useEffect(() => {
-    const unsubStatus = realtimeManager.onStatusChange((connected) => {
+    const unsubStatus = realtimeManager.onStatusChange((connected, transport, latency) => {
       setIsRealtimeConnected(connected);
+      if (transport) setRealtimeTransport(transport);
+      if (latency !== undefined) setRealtimeLatency(latency);
     });
+
+    // Background interval to periodically reconcile data
+    const syncInterval = setInterval(() => {
+      loadDatabaseData();
+    }, 12000);
 
     const unsubEvents = realtimeManager.subscribe((event: RealtimeEvent) => {
       switch (event.type) {
@@ -281,6 +290,7 @@ export default function App() {
     });
 
     return () => {
+      clearInterval(syncInterval);
       unsubStatus();
       unsubEvents();
     };
@@ -511,14 +521,29 @@ export default function App() {
                 
                 {/* Real-time Status Badge in Top Bar */}
                 {isRealtimeConnected ? (
-                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-mono font-bold uppercase tracking-wider backdrop-blur-xs">
+                  <div 
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-mono font-bold uppercase tracking-wider backdrop-blur-xs cursor-pointer hover:bg-emerald-500/30 transition"
+                    title={`Realtime Terhubung via ${realtimeTransport === 'cloud_mqtt' ? 'Cloud Sync (Multi-Device)' : realtimeTransport.toUpperCase()} ${realtimeLatency ? `(${realtimeLatency}ms)` : ''}`}
+                    onClick={() => {
+                      setRealtimeToast(`🟢 Real-Time Aktif: Mode ${realtimeTransport === 'cloud_mqtt' ? 'Cloud Multi-Device' : 'Server SSE'} ${realtimeLatency ? `• Latensi ${realtimeLatency}ms` : ''}`);
+                      setTimeout(() => setRealtimeToast(null), 3500);
+                    }}
+                  >
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>Realtime DB</span>
+                    <span>Realtime {realtimeTransport === 'cloud_mqtt' ? 'Cloud' : 'DB'}</span>
+                    {realtimeLatency > 0 && <span className="text-[9px] opacity-75 hidden sm:inline">{realtimeLatency}ms</span>}
                   </div>
                 ) : (
-                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[10px] font-mono font-bold uppercase tracking-wider">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                    <span>Connecting</span>
+                  <div 
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[10px] font-mono font-bold uppercase tracking-wider cursor-pointer"
+                    title="Mencoba Menghubungkan ke Cloud Real-Time Broker..."
+                    onClick={() => {
+                      setRealtimeToast('🟡 Sedang menghubungkan ke server real-time cloud...');
+                      setTimeout(() => setRealtimeToast(null), 3000);
+                    }}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                    <span>Syncing</span>
                   </div>
                 )}
               </div>
