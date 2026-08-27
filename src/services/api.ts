@@ -70,17 +70,21 @@ export const api = {
 
       const data = await parseJsonResponse(res);
       if (!res.ok) {
-        throw new Error(data.error || 'Login gagal');
+        throw new Error(data.error || 'Login gagal. Periksa kembali NIK dan password Anda.');
       }
       if (data.token) {
         authStorage.setToken(data.token);
       }
       return data;
     } catch (err: any) {
-      // Fallback to local DB (e.g. GitHub Pages / static deployment / offline mode)
-      const localResult = localDb.loginUser(username, password);
-      authStorage.setToken(localResult.token);
-      return localResult;
+      // If server is not reachable / static deployment, check strictly against local database
+      if (err.isHtmlFallback || err.message?.includes('STATIC_SERVER') || err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+        const localResult = localDb.loginUser(username, password);
+        authStorage.setToken(localResult.token);
+        return localResult;
+      }
+      // Re-throw server error message (e.g. account not found, wrong password)
+      throw err;
     }
   },
 
@@ -102,7 +106,7 @@ export const api = {
 
       const data = await parseJsonResponse(res);
       if (!res.ok) {
-        throw new Error(data.error || 'Registrasi akun gagal');
+        throw new Error(data.error || 'Registrasi akun gagal.');
       }
       if (data.token) {
         authStorage.setToken(data.token);
@@ -114,10 +118,12 @@ export const api = {
 
       return data;
     } catch (err: any) {
-      // Fallback directly to Embedded Local Storage Database if on GitHub Pages / Static host
-      const localResult = localDb.registerUser(params);
-      authStorage.setToken(localResult.token);
-      return localResult;
+      if (err.isHtmlFallback || err.message?.includes('STATIC_SERVER') || err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+        const localResult = localDb.registerUser(params);
+        authStorage.setToken(localResult.token);
+        return localResult;
+      }
+      throw err;
     }
   },
 
@@ -128,6 +134,10 @@ export const api = {
   },
 
   async getMe(): Promise<{ user: UserProfile }> {
+    const token = authStorage.getToken();
+    if (!token) {
+      throw new Error('Tidak ada sesi aktif');
+    }
     try {
       const res = await fetch('/api/auth/me', {
         headers: getHeaders(true)
@@ -138,16 +148,20 @@ export const api = {
       }
       return data;
     } catch (err: any) {
-      const savedUser = localStorage.getItem('tif_hk_user');
-      if (savedUser) {
-        return { user: JSON.parse(savedUser) };
+      if (err.isHtmlFallback || err.message?.includes('STATIC_SERVER') || err.message?.includes('Failed to fetch')) {
+        const savedUser = localStorage.getItem('tif_hk_user');
+        if (savedUser) {
+          const parsed = JSON.parse(savedUser);
+          const users = localDb.getUsers();
+          const found = users.find(u => u.nik === parsed.nik);
+          if (found) {
+            const { password, passwordHash, ...safe } = found;
+            return { user: safe };
+          }
+        }
       }
-      const users = localDb.getUsers();
-      if (users.length > 0) {
-        const { passwordHash, ...safe } = users[0];
-        return { user: safe };
-      }
-      throw err;
+      authStorage.removeToken();
+      throw new Error('Sesi tidak valid. Silakan login kembali.');
     }
   },
 

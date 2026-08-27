@@ -188,10 +188,17 @@ export default function App() {
           if (res?.user) {
             setUser(res.user);
             setIsLoggedIn(true);
+          } else {
+            api.logout();
+            setIsLoggedIn(false);
           }
         } catch (e) {
           console.warn('Session expired or invalid token');
+          api.logout();
+          setIsLoggedIn(false);
         }
+      } else {
+        setIsLoggedIn(false);
       }
       loadDatabaseData();
     };

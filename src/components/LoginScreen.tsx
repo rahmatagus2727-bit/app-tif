@@ -49,7 +49,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, defaultUser }
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim()) {
-      setErrorMessage('Username atau NIK tidak boleh kosong');
+      setErrorMessage('Username atau NIK tidak boleh kosong.');
       return;
     }
     setIsLoading(true);
@@ -58,24 +58,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, defaultUser }
     setSuccessMessage('');
 
     try {
-      // Call Real Backend Auth
       const res = await api.login(username.trim(), password);
       setIsLoading(false);
       onLogin(res.user);
     } catch (err: any) {
       setIsLoading(false);
-      // Fallback for demo if server unreachable
-      if (err.message && err.message.includes('tidak terdaftar')) {
-        setErrorMessage(err.message);
-      } else if (username.trim() === '92001214') {
-        onLogin({
-          ...defaultUser,
-          nik: username.trim(),
-          email: `${username.trim()}@telpro.co.id`,
-        });
-      } else {
-        setErrorMessage(err.message || 'Login gagal. Periksa kembali NIK dan password Anda.');
-      }
+      setErrorMessage(err.message || 'Login gagal. Akun belum terdaftar atau password salah.');
     }
   };
 
@@ -112,22 +100,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, defaultUser }
       setSuccessMessage('Pendaftaran akun berhasil! Mengalihkan ke dashboard...');
       setTimeout(() => {
         onLogin(res.user);
-      }, 600);
+      }, 700);
     } catch (err: any) {
-      const fallbackUser: UserProfile = {
-        nik: regNik.trim(),
-        name: regName.trim(),
-        email: regEmail.trim() || `${regNik.trim()}@telpro.co.id`,
-        role: regRole,
-        department: regDepartment,
-        phoneNumber: regPhone.trim(),
-        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${regNik.trim()}`
-      };
       setIsLoading(false);
-      setSuccessMessage('Pendaftaran akun berhasil! Mengalihkan ke dashboard...');
-      setTimeout(() => {
-        onLogin(fallbackUser);
-      }, 600);
+      setErrorMessage(err.message || 'Gagal mendaftar akun baru.');
     }
   };
 

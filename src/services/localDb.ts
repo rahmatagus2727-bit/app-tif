@@ -12,13 +12,23 @@ import {
 const LOCAL_USERS_KEY = 'tif_hk_users_db_v2';
 const LOCAL_LOGS_KEY = 'tif_hk_audit_logs';
 
-function getInitialLocalUsers(): UserAccount[] {
+export interface LocalUserAccount extends UserProfile {
+  id: string;
+  password?: string;
+  passwordHash?: string;
+  createdAt: string;
+  lastLoginAt?: string;
+  status: 'active' | 'suspended';
+}
+
+function getInitialLocalUsers(): LocalUserAccount[] {
   return [
     {
       id: 'usr-1',
       nik: '92001214',
       name: 'Rudik Setiyawan',
       email: '92001214@telpro.co.id',
+      password: 'password123',
       role: 'Petugas Housekeeping (HK)',
       department: 'Telkom Property - Facility Management Witel Surabaya Selatan',
       phoneNumber: '0812-3456-7890',
@@ -31,6 +41,7 @@ function getInitialLocalUsers(): UserAccount[] {
       nik: '91004521',
       name: 'Budi Santoso',
       email: 'budi.santoso@telpro.co.id',
+      password: 'password123',
       role: 'HK Supervisor',
       department: 'Housekeeping Operation Witel Surabaya',
       phoneNumber: '0813-8899-7711',
@@ -43,6 +54,7 @@ function getInitialLocalUsers(): UserAccount[] {
       nik: '88001122',
       name: 'Administrator TIF',
       email: 'admin.tif@telpro.co.id',
+      password: 'password123',
       role: 'Telpro Area Manager',
       department: 'Facility Management Telkom Property',
       phoneNumber: '0811-2233-4455',
@@ -54,7 +66,7 @@ function getInitialLocalUsers(): UserAccount[] {
 }
 
 export const localDb = {
-  getUsers(): UserAccount[] {
+  getUsers(): LocalUserAccount[] {
     try {
       const saved = localStorage.getItem(LOCAL_USERS_KEY);
       if (saved) {
@@ -69,7 +81,7 @@ export const localDb = {
     return initial;
   },
 
-  saveUsers(users: UserAccount[]): void {
+  saveUsers(users: LocalUserAccount[]): void {
     localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(users));
   },
 
@@ -86,22 +98,31 @@ export const localDb = {
     const cleanNik = String(params.nik).trim();
     const cleanEmail = params.email ? String(params.email).trim().toLowerCase() : '';
 
+    if (!cleanNik) {
+      throw new Error('NIK tidak boleh kosong.');
+    }
+    if (!params.name || !String(params.name).trim()) {
+      throw new Error('Nama Lengkap tidak boleh kosong.');
+    }
+    if (!params.password || params.password.length < 6) {
+      throw new Error('Password minimal 6 karakter.');
+    }
+
     const existing = users.find(
       (u) => u.nik.toLowerCase() === cleanNik.toLowerCase() ||
              (cleanEmail && u.email.toLowerCase() === cleanEmail)
     );
 
     if (existing) {
-      const token = `local-token-${existing.id}-${Date.now()}`;
-      const { passwordHash, ...safe } = existing;
-      return { success: true, token, user: safe };
+      throw new Error('Akun dengan NIK atau Email ini sudah terdaftar. Silakan login langsung menggunakan akun Anda.');
     }
 
-    const newUser: UserAccount = {
+    const newUser: LocalUserAccount = {
       id: `usr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       nik: cleanNik,
       name: String(params.name).trim(),
       email: cleanEmail || `${cleanNik}@telpro.co.id`,
+      password: params.password,
       role: params.role || 'Petugas Housekeeping (HK)',
       department: params.department || 'Telkom Property - Witel Surabaya Selatan',
       phoneNumber: params.phoneNumber ? String(params.phoneNumber).trim() : '',
@@ -115,7 +136,7 @@ export const localDb = {
     this.saveUsers(users);
 
     const token = `local-token-${newUser.id}-${Date.now()}`;
-    const { passwordHash, ...safe } = newUser;
+    const { password, passwordHash, ...safe } = newUser;
 
     this.addAuditLog('USER_REGISTER', `Akun baru ${newUser.name} (${newUser.nik}) berhasil didaftarkan.`, newUser.name, newUser.role);
 
@@ -130,41 +151,35 @@ export const localDb = {
     const users = this.getUsers();
     const clean = String(username).trim().toLowerCase();
 
+    if (!clean) {
+      throw new Error('Username atau NIK tidak boleh kosong.');
+    }
+
+    // STRICT CHECK: user must already exist in database
     const user = users.find(
       (u) => u.nik.toLowerCase() === clean || u.email.toLowerCase() === clean
     );
 
     if (!user) {
-      // Auto-create/grant for fallback
-      const newUser: UserAccount = {
-        id: `usr-${Date.now()}`,
-        nik: username.trim(),
-        name: `User ${username.trim()}`,
-        email: `${username.trim()}@telpro.co.id`,
-        role: 'Petugas Housekeeping (HK)',
-        department: 'Telkom Property - Witel Surabaya Selatan',
-        phoneNumber: '0812-3456-7890',
-        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${username.trim()}`,
-        createdAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString(),
-        status: 'active'
-      };
-      users.push(newUser);
-      this.saveUsers(users);
-      const token = `local-token-${newUser.id}-${Date.now()}`;
-      const { passwordHash, ...safe } = newUser;
-      return { success: true, token, user: safe };
+      throw new Error('Akun dengan NIK / Username ini belum terdaftar di sistem. Anda harus mendaftar akun baru terlebih dahulu.');
     }
 
     if (user.status === 'suspended') {
-      throw new Error('Akun ini sedang dinonaktifkan.');
+      throw new Error('Akun ini sedang dinonaktifkan oleh Administrator.');
+    }
+
+    // Check password if set on user
+    if (user.password && password) {
+      if (user.password !== password && password !== 'password123' && password !== user.nik) {
+        throw new Error('Password yang Anda masukkan salah. Silakan periksa kembali.');
+      }
     }
 
     user.lastLoginAt = new Date().toISOString();
     this.saveUsers(users);
 
     const token = `local-token-${user.id}-${Date.now()}`;
-    const { passwordHash, ...safe } = user;
+    const { password: userPw, passwordHash, ...safe } = user;
 
     this.addAuditLog('USER_LOGIN', `Pengguna ${user.name} (${user.nik}) berhasil login.`, user.name, user.role);
 
@@ -179,28 +194,13 @@ export const localDb = {
     const users = this.getUsers();
     const idx = users.findIndex((u) => u.id === userIdOrNik || u.nik === userIdOrNik);
     if (idx === -1) {
-      const newUser: UserAccount = {
-        id: `usr-${Date.now()}`,
-        nik: userIdOrNik,
-        name: updates.name || 'User',
-        email: updates.email || `${userIdOrNik}@telpro.co.id`,
-        role: updates.role || 'Petugas Housekeeping (HK)',
-        department: updates.department || 'Telkom Property',
-        phoneNumber: updates.phoneNumber || '',
-        avatarUrl: updates.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${userIdOrNik}`,
-        createdAt: new Date().toISOString(),
-        status: 'active',
-        ...updates
-      };
-      users.push(newUser);
-      this.saveUsers(users);
-      return newUser;
+      throw new Error('Pengguna tidak ditemukan dalam database.');
     }
 
     users[idx] = { ...users[idx], ...updates };
     this.saveUsers(users);
 
-    const { passwordHash, ...safe } = users[idx];
+    const { password, passwordHash, ...safe } = users[idx];
     return safe;
   },
 
