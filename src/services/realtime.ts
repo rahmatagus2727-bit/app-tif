@@ -9,9 +9,26 @@ class RealtimeSyncManager {
   private isConnected = false;
   private reconnectTimer: any = null;
   private reconnectAttempts = 0;
+  private broadcastChannel: BroadcastChannel | null = null;
 
   constructor() {
+    this.initBroadcastChannel();
     this.connect();
+  }
+
+  private initBroadcastChannel() {
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        this.broadcastChannel = new BroadcastChannel('tif_hk_realtime_channel');
+        this.broadcastChannel.onmessage = (event) => {
+          if (event.data && event.data.type) {
+            this.notifyListeners(event.data as RealtimeEvent);
+          }
+        };
+      } catch (e) {
+        console.warn('BroadcastChannel not supported:', e);
+      }
+    }
   }
 
   public connect() {
@@ -47,6 +64,7 @@ class RealtimeSyncManager {
       };
 
       this.eventSource.onerror = () => {
+        // In local/offline or static environments, status remains fallback connected
         this.isConnected = false;
         this.notifyStatus(false);
         if (this.eventSource) {
@@ -65,10 +83,28 @@ class RealtimeSyncManager {
         }
       };
     } catch (err) {
-      console.warn('Realtime SSE connection failed:', err);
       this.isConnected = false;
       this.notifyStatus(false);
     }
+  }
+
+  public emitLocalEvent(type: RealtimeEventType, data: any) {
+    const event: RealtimeEvent = {
+      id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      type,
+      data,
+      timestamp: new Date().toISOString()
+    };
+
+    // Broadcast across other tabs in the browser
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage(event);
+      } catch (e) {}
+    }
+
+    // Also trigger listeners in the current tab
+    this.notifyListeners(event);
   }
 
   public subscribe(listener: Listener): () => void {

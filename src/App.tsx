@@ -365,6 +365,10 @@ export default function App() {
     };
     setNotifications((prev) => [newNotif, ...prev]);
 
+    // Emit event across tabs and instances
+    realtimeManager.emitLocalEvent('SUBMISSION_CREATED', newSubmission);
+    realtimeManager.emitLocalEvent('NOTIFICATION_ADDED', newNotif);
+
     // Send to Backend DB
     try {
       await api.createSubmission(newSubmission);
@@ -398,6 +402,8 @@ export default function App() {
       read: false,
     };
     setNotifications((prev) => [newNotif, ...prev]);
+
+    realtimeManager.emitLocalEvent('SUBMISSION_DELETED', { buildingId, itemId, dateOnly: effectiveDate });
 
     try {
       await api.deleteSubmission(buildingId, itemId, effectiveDate);
@@ -666,6 +672,24 @@ export default function App() {
 
       {/* 2. MAIN APPLICATION WORKSPACE */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full pb-24">
+        {/* Real-time live toast alert banner */}
+        {realtimeToast && (
+          <div className="mb-4 p-3.5 bg-emerald-600 text-white rounded-2xl shadow-lg flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top duration-300">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-200 animate-ping shrink-0" />
+              <span className="text-xs sm:text-sm font-bold tracking-tight">
+                {realtimeToast}
+              </span>
+            </div>
+            <button
+              onClick={() => setRealtimeToast(null)}
+              className="text-xs bg-white/20 hover:bg-white/30 px-2.5 py-1 rounded-xl font-bold cursor-pointer transition shrink-0"
+            >
+              Tutup
+            </button>
+          </div>
+        )}
+
         {/* VIEW 1: HOME TAB */}
         {mainTab === 'home' && (
           <HomeScreen

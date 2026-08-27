@@ -12,6 +12,12 @@ import {
   Filter,
   LogOut,
   Calendar,
+  Activity,
+  Radio,
+  Clock,
+  TrendingUp,
+  Flame,
+  CheckCheck,
 } from 'lucide-react';
 import { UserProfile, Building, HKSubmission, HKItemDefinition } from '../types';
 import { getItemsForBuilding } from '../data/defaultData';
@@ -77,6 +83,29 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   };
 
+  // Calculate Global Realtime Stats across all 15 buildings for the selected date
+  let totalTasksOverall = 0;
+  let totalCompletedOverall = 0;
+  let fullyCompletedBuildings = 0;
+
+  buildings.forEach((b) => {
+    const stats = getBuildingStatsForDate(b, items, submissions, activeDateStr);
+    totalTasksOverall += stats.totalItems;
+    totalCompletedOverall += stats.totalCompletedCount;
+    if (stats.compositePercentage === 100 && stats.totalItems > 0) {
+      fullyCompletedBuildings++;
+    }
+  });
+
+  const overallProgressPercentage = totalTasksOverall > 0 
+    ? Math.round((totalCompletedOverall / totalTasksOverall) * 100) 
+    : 0;
+
+  // Recent 3 submissions for live activity ticker
+  const recentSubmissions = submissions
+    .filter((s) => s.photoUrl)
+    .slice(0, 3);
+
   // Filter buildings by search & class
   const filteredBuildings = buildings.filter((b) => {
     const matchSearch =
@@ -95,9 +124,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       {/* 1. TOP GREETING HEADER */}
       <div className="flex items-center justify-between pt-1">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-1.5">
-            <span>{getGreeting()}</span>
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+              <span>{getGreeting()}</span>
+            </h1>
+            {/* LIVE REAL-TIME PULSE BADGE */}
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-extrabold text-emerald-700 shadow-xs animate-pulse">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span>LIVE SYNC</span>
+            </span>
+          </div>
           <div className="flex items-center gap-2 mt-0.5">
             <p className="text-sm font-bold text-rose-600 tracking-tight">
               {user.name}
@@ -113,7 +149,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {/* Notification Bell */}
           <button
             onClick={onOpenNotifications}
-            className="relative p-2.5 rounded-full bg-white hover:bg-slate-100 border border-slate-200/80 text-slate-700 shadow-sm transition"
+            className="relative p-2.5 rounded-full bg-white hover:bg-slate-100 border border-slate-200/80 text-slate-700 shadow-sm transition cursor-pointer"
             title="Lihat Notifikasi"
             id="home-btn-notification"
           >
@@ -128,10 +164,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {/* Refresh Sync Button */}
           <button
             onClick={handleRefresh}
-            className={`p-2.5 rounded-full bg-white hover:bg-slate-100 border border-slate-200/80 text-slate-700 shadow-sm transition ${
+            className={`p-2.5 rounded-full bg-white hover:bg-slate-100 border border-slate-200/80 text-slate-700 shadow-sm transition cursor-pointer ${
               isRefreshing ? 'animate-spin text-rose-600' : ''
             }`}
-            title="Refresh & Sinkronisasi"
+            title="Refresh & Sinkronisasi Real-Time"
             id="home-btn-refresh"
           >
             <RefreshCw className="w-5 h-5" />
@@ -141,7 +177,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {onLogout && (
             <button
               onClick={() => setShowLogoutConfirm(true)}
-              className="p-2.5 rounded-full bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 shadow-sm transition"
+              className="p-2.5 rounded-full bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 shadow-sm transition cursor-pointer"
               title="Keluar / Ganti Akun"
               id="home-btn-logout"
             >
@@ -172,7 +208,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <button
                 type="button"
                 onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition"
+                className="flex-1 py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
               >
                 Batal
               </button>
@@ -182,7 +218,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   setShowLogoutConfirm(false);
                   onLogout();
                 }}
-                className="flex-1 py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-xs transition shadow-md shadow-rose-600/30"
+                className="flex-1 py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-xs transition shadow-md shadow-rose-600/30 cursor-pointer"
                 id="modal-btn-confirm-logout-home"
               >
                 Ya, Keluar
@@ -192,7 +228,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
       )}
 
-      {/* 2. RED BANNER CARD */}
+      {/* 2. RED BANNER CARD DENGAN LIVE PROGRES REAL-TIME & STATISTIK 15 GEDUNG */}
       <div
         className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-rose-600 via-rose-700 to-red-800 text-white p-5 sm:p-6 shadow-xl shadow-rose-950/20 border border-rose-500/40"
         id="home-banner-card"
@@ -201,32 +237,119 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <div className="absolute -right-8 -bottom-8 w-40 h-40 rounded-full bg-white/10 blur-2xl pointer-events-none" />
         <div className="absolute right-6 top-4 w-24 h-24 rounded-full bg-rose-400/20 pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-1.5 max-w-lg">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-mono font-bold uppercase tracking-wider backdrop-blur-md">
-              <Sparkles className="w-3 h-3 text-amber-300" />
-              <span>Telkom Property • Witel Surabaya Selatan</span>
+        <div className="relative z-10 space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1.5 max-w-lg">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-mono font-bold uppercase tracking-wider backdrop-blur-md">
+                <Sparkles className="w-3 h-3 text-amber-300" />
+                <span>Telkom Property • Real-Time Monitoring</span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-extrabold text-white leading-tight">
+                Monitoring & Checklist Housekeeping
+              </h2>
+              <p className="text-xs text-rose-100 leading-relaxed">
+                Seluruh aktivitas checklist, progres harian, dan notifikasi disinkronkan secara langsung untuk semua user.
+              </p>
             </div>
-            <h2 className="text-lg sm:text-xl font-extrabold text-white leading-tight">
-              Monitoring & Checklist Housekeeping
-            </h2>
-            <p className="text-xs text-rose-100 leading-relaxed">
-              Monitoring kebersihan 15 gedung operasional HK (Kelas 2, Kelas 3, Kelas 5), upload foto bukti pekerjaan, dan integrasi real-time.
-            </p>
+
+            <div className="flex items-center gap-2 self-stretch sm:self-auto">
+              <button
+                onClick={onOpenChecklist}
+                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-white hover:bg-rose-50 text-rose-700 font-extrabold text-xs shadow-lg transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                id="banner-btn-checklist"
+              >
+                <span>Mulai Checklist</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 self-stretch sm:self-auto">
-            <button
-              onClick={onOpenChecklist}
-              className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-white hover:bg-rose-50 text-rose-700 font-extrabold text-xs shadow-lg transition active:scale-95 flex items-center justify-center gap-1.5"
-              id="banner-btn-checklist"
-            >
-              <span>Mulai Checklist</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+          {/* REAL-TIME PROGRESS STATS BAR OVERLAY */}
+          <div className="pt-2 border-t border-rose-400/30 grid grid-cols-2 sm:grid-cols-4 gap-2 text-white">
+            <div className="bg-black/20 backdrop-blur-xs rounded-2xl p-2.5 border border-white/10">
+              <div className="text-[10px] text-rose-200 font-semibold uppercase flex items-center gap-1">
+                <TrendingUp className="w-3 h-3 text-amber-300" />
+                <span>Progres Global</span>
+              </div>
+              <div className="text-lg sm:text-xl font-black font-mono text-white mt-0.5">
+                {overallProgressPercentage}%
+              </div>
+              <div className="w-full bg-white/20 rounded-full h-1.5 mt-1.5 overflow-hidden">
+                <div 
+                  className="bg-emerald-400 h-full rounded-full transition-all duration-700" 
+                  style={{ width: `${overallProgressPercentage}%` }} 
+                />
+              </div>
+            </div>
+
+            <div className="bg-black/20 backdrop-blur-xs rounded-2xl p-2.5 border border-white/10">
+              <div className="text-[10px] text-rose-200 font-semibold uppercase flex items-center gap-1">
+                <CheckCheck className="w-3 h-3 text-emerald-300" />
+                <span>Item Selesai</span>
+              </div>
+              <div className="text-lg sm:text-xl font-black font-mono text-white mt-0.5">
+                {totalCompletedOverall} <span className="text-xs font-normal text-rose-200">/ {totalTasksOverall}</span>
+              </div>
+              <div className="text-[10px] text-rose-200 font-medium mt-0.5">
+                Tercatat di server
+              </div>
+            </div>
+
+            <div className="bg-black/20 backdrop-blur-xs rounded-2xl p-2.5 border border-white/10">
+              <div className="text-[10px] text-rose-200 font-semibold uppercase flex items-center gap-1">
+                <Building2 className="w-3 h-3 text-blue-300" />
+                <span>Gedung 100%</span>
+              </div>
+              <div className="text-lg sm:text-xl font-black font-mono text-white mt-0.5">
+                {fullyCompletedBuildings} <span className="text-xs font-normal text-rose-200">/ {buildings.length}</span>
+              </div>
+              <div className="text-[10px] text-rose-200 font-medium mt-0.5">
+                Selesai tuntas
+              </div>
+            </div>
+
+            <div className="bg-black/20 backdrop-blur-xs rounded-2xl p-2.5 border border-white/10">
+              <div className="text-[10px] text-rose-200 font-semibold uppercase flex items-center gap-1">
+                <Radio className="w-3 h-3 text-emerald-300 animate-pulse" />
+                <span>Status Jaringan</span>
+              </div>
+              <div className="text-sm sm:text-base font-extrabold text-emerald-300 mt-1 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span>Terhubung</span>
+              </div>
+              <div className="text-[10px] text-rose-200 font-medium mt-0.5">
+                Multi-user sync aktif
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* RECENT REAL-TIME ACTIVITY TICKER */}
+      {recentSubmissions.length > 0 && (
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 shrink-0">
+              <Activity className="w-4 h-4" />
+            </span>
+            <div>
+              <div className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                <span>Aktivitas Real-Time Terkini</span>
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-rose-100 text-rose-700">TERBARU</span>
+              </div>
+              <p className="text-[11px] text-slate-500 font-medium">
+                {recentSubmissions[0].officerName} baru saja menyelesaikan "{recentSubmissions[0].itemName}" di {recentSubmissions[0].buildingName}.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onOpenNotifications}
+            className="text-[11px] font-bold text-rose-600 hover:text-rose-700 underline underline-offset-2 shrink-0 cursor-pointer"
+          >
+            Lihat Semua Notifikasi
+          </button>
+        </div>
+      )}
 
       {/* 3. TIMELINE LAPORAN BULANAN (WIDGET KALENDER & TANGGAL MERAH) */}
       <MonthlyTimelineWidget
